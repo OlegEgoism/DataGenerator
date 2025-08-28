@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.conf.urls.static import static
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from data_generator.views import home, profile, logout_view, register, edit_profile, my_projects, database_detail
+from data_generator.views import home, profile, logout_view, register, edit_profile, my_projects, database_detail, database_edit
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,6 +29,8 @@ urlpatterns = [
     path('my_projects/', my_projects, name='my_projects'),
 
     path('database/<int:pk>/', database_detail, name='database_detail'),
+
+    path('database/<int:pk>/edit/', database_edit, name='database_edit'),
 
     path('profile/edit/', edit_profile, name='edit_profile'),
     path('register/', register, name='register'),

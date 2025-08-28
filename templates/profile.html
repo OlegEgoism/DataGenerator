@@ -23,7 +23,7 @@
                     <div><i class="bi bi-people"></i><strong> Должность:</strong> {{ user.position|default:"Не указана" }}</div>
                     <div><i class="bi bi-calendar-week"></i><strong> Последний вход:</strong> {{ user.last_login|date:"d.m.Y - H:i" }}</div>
                     <div><i class="bi bi-calendar-check"></i><strong> Дата регистрации:</strong> {{ user.date_joined|date:"d.m.Y - H:i" }}</div>
-                    <div><i class="bi bi-calendar2-check"></i><strong> Дата редактирования:</strong> {{ user.updated|date:"d.m.Y - H:i" }}</div>
+                    <div><i class="bi bi-calendar2-check"></i><strong> Дата изменения:</strong> {{ user.updated|date:"d.m.Y - H:i" }}</div>
                 </div>
             </div>
         </div>
@@ -31,7 +31,6 @@
             <a href="{% url 'my_projects' %}" class="btn btn-success"> <i class="bi bi-list-ul"></i> Мои проекты</a>
             <a href="{% url 'edit_profile' %}" class="btn btn-success"><i class="bi bi-pencil-square"></i> Редактировать профиль</a>
         </div>
-
         <hr>
 
         <h3 class="mb-0 mb-3 text-center">Проекты</h3>
@@ -42,14 +41,13 @@
                 <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
             </form>
         </div>
-
         {% if user_databases %}
             <ul class="list-group">
                 {% for db in user_databases %}
                     <li class="list-group-item d-flex justify-content-between align-items-center">
                         <a href="{% url 'database_detail' db.pk %}" class="text-decoration-none d-flex align-items-center gap-2">
                             <img class="db-image" src="{{ db.data_base_name.images_db.url }}" alt="{{ db.data_base_name.db_name }}">
-                            <span>{{ db.db_project }} ({{ db.data_base_name.db_name }})</span>
+                            <span>{{ db.db_project }}</span>
                         </a>
                     </li>
                 {% endfor %}
@@ -63,10 +61,6 @@
                 {% endif %}
             </div>
         {% endif %}
-
-
-
-
         {#        <div class="d-flex justify-content-center align-items-center flex-column mt-4">#}
         {#            <a href="{% url 'create_project' %}" class="btn btn-success mt-2"> <i class="bi bi-plus-lg"></i> Создать проект </a>#}
         {#        </div>#}

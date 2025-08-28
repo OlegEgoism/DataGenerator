@@ -7,33 +7,25 @@
     <h1 class="text-center mb-4">Проект: {{ database.db_project }}</h1>
     <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
         <div class="card-body">
-            <p><strong>База данных:</strong> {{ database.data_base_name.name }}</p>
-            <hr>
-            <p><strong>Название:</strong> {{ database.db_name }}</p>
-            <p><strong>Пользователь:</strong> {{ database.db_user }}</p>
-            <p><strong>Пароль:</strong>
-                <span id="password" data-password="{{ database.db_password }}">******</span>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showPassword()">
-                    <i id="eyeIcon" class="bi bi-eye"></i>
-                </button>
-            </p>
-            <p><strong>Хост:</strong> {{ database.db_host }}</p>
-            <p><strong>Порт:</strong> {{ database.db_port }}</p>
-            <hr>
-            <p><strong>Дата создания:</strong> {{ database.db_date_create|date:"d.m.Y - H:i" }}</p>
+            <div class="d-flex align-items-center gap-3 mb-3 db-image">
+                {% if database.data_base_name.images_db %}
+                    <img src="{{ database.data_base_name.images_db.url }}" alt="{{ database.data_base_name.name }}" class="rounded shadow-sm db-image">
+                {% endif %}
+                <strong>{{ database.data_base_name.name }}</strong>
+            </div>
             <hr>
 
-            <!-- Кнопки на одном уровне -->
+            <p><strong>База данных:</strong> {{ database.db_name }}</p>
+            <p><strong>Пользователь:</strong> {{ database.db_user }}</p>
+            <p><strong>Пароль:</strong> {{ database.db_password }}</p>
+            <p><strong>Хост:</strong> {{ database.db_host }}</p>
+            <p><strong>Порт:</strong> {{ database.db_port }}</p>
+            <p><strong>Дата создания:</strong> {{ database.created|date:"d.m.Y - H:i" }}</p>
+            <p><strong>Дата изменения:</strong> {{ database.updated|date:"d.m.Y - H:i" }}</p>
             <div class="d-flex justify-content-between align-items-center mt-3">
-                <a href="{% url 'profile' %}" class="btn btn-secondary">
-                    <i class="bi bi-arrow-left"></i> Назад
-                </a>
-{#                <a href="{% url 'database_edit' database.pk %}" class="btn btn-success">#}
-{#                    <i class="bi bi-gear-fill"></i> Настройки#}
-{#                </a>#}
+                <a href="{% url 'profile' %}" class="btn btn-secondary"> <i class="bi bi-arrow-left"></i> Назад</a>
+                <a href="{% url 'database_edit' database.pk %}" class="btn btn-success"><i class="bi bi-pencil-square"></i> Редактировать подключение</a>
             </div>
         </div>
     </div>
-
-    <script src="{% static 'js/button.js' %}"></script>
 {% endblock %}

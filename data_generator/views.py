@@ -1,9 +1,9 @@
+import psycopg2
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
-
-from data_generator.forms import CustomUserCreationForm, CustomUserForm
+from data_generator.forms import CustomUserCreationForm, CustomUserForm, DataBaseUserForm
 from data_generator.models import DataBaseUser, AppSettings
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
@@ -98,5 +98,47 @@ def database_detail(request, pk):
     """Страница информации о конкретной базе данных пользователя"""
     database = get_object_or_404(DataBaseUser, pk=pk)
     return render(request, template_name='database_detail.html', context={
+        'database': database
+    })
+
+
+@login_required
+def database_edit(request, pk):
+    """Редактирование информации о базе данных и проверка подключения"""
+    app_settings = AppSettings.objects.first()
+    connect_timeout = app_settings.connect_timeout_db if app_settings else 5
+    database = get_object_or_404(DataBaseUser, pk=pk)
+    if request.method == 'POST':
+        form = DataBaseUserForm(request.POST, instance=database)
+        if form.is_valid():
+            database = form.save(commit=False)
+            if not form.cleaned_data['db_password']:
+                database.db_password = DataBaseUser.objects.get(pk=pk).db_password
+            database.save()
+            if 'check_connection' in request.POST:
+                try:
+                    connection = psycopg2.connect(
+                        dbname=database.db_name,
+                        user=database.db_user,
+                        password=database.db_password,
+                        host=database.db_host,
+                        port=database.db_port,
+                        connect_timeout=connect_timeout
+                    )
+                    messages.success(request, f"Успешное подключение к базе данных '{database.db_name}'.", extra_tags="alert alert-success")
+                    connection.close()
+                except psycopg2.OperationalError:
+                    messages.error(request, "Ошибка подключения! Проверьте настройки подключения.", extra_tags="alert alert-danger")
+                except Exception as e:
+                    messages.error(request, f"Ошибка подключения: {str(e)}", extra_tags="alert alert-danger")
+            else:
+                messages.success(request, "Данные успешно сохранены.", extra_tags="alert alert-success")
+        else:
+            messages.error(request, message="")
+    else:
+        form = DataBaseUserForm(instance=database)
+        form.fields['db_password'].widget.attrs['value'] = database.db_password
+    return render(request, template_name='database_edit.html', context={
+        'form': form,
         'database': database
     })

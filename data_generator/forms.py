@@ -1,7 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
-
 from .models import CustomUser, DataBaseUser
 
 
@@ -26,16 +25,15 @@ class CustomUserCreationForm(UserCreationForm):
         existing_user = CustomUser.objects.filter(email=email).first()
         if existing_user:
             if existing_user.is_active:
-                # Если пользователь активен, регистрация запрещена
                 raise ValidationError("Пользователь с таким email уже зарегистрирован.")
             else:
                 existing_user.delete()
-
         return email
 
 
 class CustomUserForm(forms.ModelForm):
     """Редактирование профиля"""
+
     class Meta:
         model = CustomUser
         fields = ['username', 'email', 'phone_number', 'position', 'photo']
@@ -46,17 +44,6 @@ class CustomUserForm(forms.ModelForm):
             'position': forms.TextInput(attrs={'class': 'form-control'}),
             'photo': forms.FileInput(attrs={'class': 'form-control'}),
         }
-
-
-
-
-
-
-
-
-
-
-
 
 
 class DataBaseUserForm(forms.ModelForm):
@@ -74,4 +61,3 @@ class DataBaseUserForm(forms.ModelForm):
             'db_host': forms.TextInput(attrs={'class': 'form-control'}),
             'db_port': forms.NumberInput(attrs={'class': 'form-control'}),
         }
-
