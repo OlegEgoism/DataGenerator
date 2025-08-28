@@ -1,0 +1,90 @@
+/*Меню страницы*/
+.info-pan {
+    font-size: 40px;
+    margin-bottom: 20px;
+}
+
+.panel-input {
+    max-width: 600px
+}
+
+.db-image {
+    width: 30px;
+    height: 30px;
+    object-fit: cover;
+    border-radius: 5px;
+}
+/*Меню страницы*/
+
+
+/*Аватар профиля*/
+.profile-photo-container {
+    overflow: hidden;
+    display: inline-block;
+}
+
+.profile-photo {
+    width: 150px;
+    height: 150px;
+    border-radius: 20%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.profile-photo:hover {
+    transform: scale(1.05);
+}
+
+.avatar-img {
+    width: 20px;
+    height: 20px;
+    border-radius: 20%; /* Делает аватар круглым */
+    object-fit: cover; /* Обрезает изображение по размеру */
+    border: 1px solid #fff; /* Тонкая белая рамка для видимости */
+}
+
+/*Аватар профиля*/
+
+
+/*body {*/
+/*    background-color: #f8f9fa;*/
+/*}*/
+
+/*.navbar {*/
+/*    border-bottom: 3px solid #007bff;*/
+/*}*/
+
+/*footer p {*/
+/*    font-size: 14px;*/
+/*}*/
+
+/*body {*/
+/*    background-color: #f8f9fa;*/
+/*}*/
+
+/*.card {*/
+/*    border-radius: 10px;*/
+/*    transition: transform 0.3s ease-in-out;*/
+/*}*/
+
+/*.card:hover {*/
+/*    transform: translateY(-5px);*/
+/*}*/
+
+/*.info-size {*/
+/*    font-size: 50px;*/
+/*    color: blue*/
+/*}*/
+
+
+/*.modal-content {*/
+/*    border-radius: 10px;*/
+/*}*/
+
+/*.modal-header {*/
+/*    background-color: #0d6efd;*/
+/*    color: #fff;*/
+/*}*/
+
+
+

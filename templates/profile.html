@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Профиль{% endblock %}
+
+{% block content %}
+    <h1 class="text-center mb-4">Профиль {{ user.username }}</h1>
+    <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
+        <div class="row g-4 align-items-center">
+            <div class="col-md-4 text-center">
+                <div class="profile-photo-container">
+                    {% if user.photo %}
+                        <img src="{{ user.photo.url }}" class="profile-photo" alt="Фото профиля">
+                    {% else %}
+                        <img src="{% static 'user_photo/default.png' %}" class="profile-photo" alt="Фото профиля">
+                    {% endif %}
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div class="d-flex flex-column gap-2">
+                    <div><i class="bi bi-envelope-fill"></i><strong> Email:</strong> {{ user.email|default:"Не указан" }}</div>
+                    <div><i class="bi bi-phone"></i><strong> Телефон:</strong> {{ user.phone_number|default:"Не указан" }}</div>
+                    <div><i class="bi bi-people"></i><strong> Должность:</strong> {{ user.position|default:"Не указана" }}</div>
+                    <div><i class="bi bi-calendar-week"></i><strong> Последний вход:</strong> {{ user.last_login|date:"d.m.Y - H:i" }}</div>
+                    <div><i class="bi bi-calendar-check"></i><strong> Дата регистрации:</strong> {{ user.date_joined|date:"d.m.Y - H:i" }}</div>
+                    <div><i class="bi bi-calendar2-check"></i><strong> Дата редактирования:</strong> {{ user.updated|date:"d.m.Y - H:i" }}</div>
+                </div>
+            </div>
+        </div>
+        <div class="mt-3 d-flex justify-content-end gap-2">
+            <a href="{% url 'my_projects' %}" class="btn btn-success"> <i class="bi bi-list-ul"></i> Мои проекты</a>
+            <a href="{% url 'edit_profile' %}" class="btn btn-success"><i class="bi bi-pencil-square"></i> Редактировать профиль</a>
+        </div>
+
+        <hr>
+
+        <h3 class="mb-0 mb-3 text-center">Проекты</h3>
+        <div class="mb-3 text-center">
+            <form method="get" class="d-flex gap-2 mt-2">
+                <input type="text" name="search" id="searchInput" class="form-control flex-grow-1" placeholder="Поиск по названию проекта" value="{{ request.GET.search }}">
+                <button type="button" id="clearSearch" class="btn btn-outline-secondary"><i class="bi bi-x-circle"></i></button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+            </form>
+        </div>
+
+        {% if user_databases %}
+            <ul class="list-group">
+                {% for db in user_databases %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <a href="{% url 'database_detail' db.pk %}" class="text-decoration-none d-flex align-items-center gap-2">
+                            <img class="db-image" src="{{ db.data_base_name.images_db.url }}" alt="{{ db.data_base_name.db_name }}">
+                            <span>{{ db.db_project }} ({{ db.data_base_name.db_name }})</span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="alert alert-warning text-center">
+                {% if search_query %}
+                    По запросу <strong>"{{ search_query }}"</strong> ничего не найдено.
+                {% else %}
+                    У вас нет созданных проектов.
+                {% endif %}
+            </div>
+        {% endif %}
+
+
+
+
+        {#        <div class="d-flex justify-content-center align-items-center flex-column mt-4">#}
+        {#            <a href="{% url 'create_project' %}" class="btn btn-success mt-2"> <i class="bi bi-plus-lg"></i> Создать проект </a>#}
+        {#        </div>#}
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let searchInput = document.getElementById("searchInput");
+            let clearButton = document.getElementById("clearSearch");
+
+            // Показываем кнопку очистки, если есть текст в поле поиска
+            function toggleClearButton() {
+                clearButton.style.display = searchInput.value.length > 0 ? "inline-block" : "none";
+            }
+
+            // Очистка поиска
+            clearButton.addEventListener("click", function () {
+                searchInput.value = "";
+                document.querySelector("form").submit(); // Отправляем форму после очистки
+            });
+
+            // Проверяем состояние при загрузке страницы
+            toggleClearButton();
+
+            // Отслеживаем ввод текста
+            searchInput.addEventListener("input", toggleClearButton);
+        });
+    </script>
+{% endblock %}

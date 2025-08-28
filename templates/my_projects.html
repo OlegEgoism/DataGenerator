@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+
+{% block title %}Мои проекты{% endblock %}
+
+{% block content %}
+    <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
+        <h1 class="text-center mb-4">Мои проекты</h1>
+
+        <!-- Поисковая форма -->
+        <form method="get" class="mb-3 d-flex gap-2 position-relative">
+            <input type="text" name="search" id="searchInput" class="form-control" placeholder="Поиск по названию проекта" value="{{ request.GET.search }}">
+            <button type="button" id="clearSearch" class="btn btn-outline-secondary" style="display: none;">
+                <i class="bi bi-x-circle"></i>
+            </button>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i>
+            </button>
+        </form>
+
+        {% if search_query %}
+            <div class="alert alert-info text-center">
+                Результаты поиска по запросу: <strong>{{ search_query }}</strong>
+            </div>
+        {% endif %}
+
+        {% if projects %}
+            <div class="row">
+                {% for project in projects %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card shadow-lg border-6">
+                            <div class="card-body position-relative">
+                                <h5 class="card-title d-flex justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <img src="{{ project.data_base_name.images_db.url }}" alt="{{ project.data_base_name.name }}" style="width: 40px; height: 40px; object-fit: contain;">
+                                        <span>{{ project.db_project }} (БД: {{ project.data_base_name }})</span>
+                                    </div>
+                                </h5>
+                                <hr>
+                                <p><strong>Дата создания:</strong> {{ project.db_date_create|date:"d.m.Y - H:i" }}</p>
+                                <p><strong>Дата изменения:</strong> {{ project.db_date_edit|date:"d.m.Y - H:i" }}</p>
+
+                                <div class="d-flex justify-content-end gap-3">
+                                    <a href="{% url 'connect_to_database' project.pk %}" class="btn btn-success"> <i class="bi bi-database"></i> Подключиться</a>
+                                    <a href="{% url 'database_edit' project.pk %}" class="btn btn-success"> <i class="bi bi-gear-fill"></i> Настройки</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Пагинация с вводом номера страницы -->
+            <nav class="mt-3">
+                <ul class="pagination justify-content-center align-items-center">
+                    {% if projects.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">&laquo; Первая</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ projects.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Назад</a>
+                        </li>
+                    {% endif %}
+
+                    <!-- Ввод номера страницы -->
+                    <li class="page-item">
+                        <span class="page-link">Страница</span>
+                    </li>
+                    <li class="page-item">
+                        <input type="number" id="pageInput" class="form-control text-center" style="max-width: 80px;" min="1" max="{{ projects.paginator.num_pages }}" value="{{ projects.number }}">
+                    </li>
+                    <li class="page-item">
+                        <span class="page-link">из {{ projects.paginator.num_pages }}</span>
+                    </li>
+                    <li class="page-item">
+                        <button id="goToPageButton" class="btn btn-primary">Перейти</button>
+                    </li>
+
+                    {% if projects.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ projects.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Вперёд</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ projects.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">Последняя &raquo;</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+
+        {% else %}
+            <div class="alert alert-warning text-center">
+                {% if search_query %}
+                    По запросу <strong>"{{ search_query }}"</strong> ничего не найдено.
+                {% else %}
+                    У вас нет созданных проектов.
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <div class="d-flex justify-content-between mt-3">
+            <a href="{% url 'home' %}" class="btn btn-secondary"> <i class="bi bi-arrow-left"></i> Назад </a>
+            {#        <a href="{% url 'create_project' %}" class="btn btn-success"> <i class="bi bi-plus-lg"></i> Создать проект </a>#}
+        </div>
+    </div>
+    
+    <!-- JS для очистки поиска и перехода по странице -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            let searchInput = document.getElementById("searchInput");
+            let clearButton = document.getElementById("clearSearch");
+            let pageInput = document.getElementById("pageInput");
+            let goToPageButton = document.getElementById("goToPageButton");
+
+            function toggleClearButton() {
+                clearButton.style.display = searchInput.value.length > 0 ? "inline-block" : "none";
+            }
+
+            clearButton.addEventListener("click", function () {
+                searchInput.value = "";
+                document.querySelector("form").submit();
+            });
+
+            toggleClearButton();
+            searchInput.addEventListener("input", toggleClearButton);
+
+            // Обработчик кнопки "Перейти"
+            goToPageButton.addEventListener("click", function () {
+                let page = pageInput.value;
+                let maxPage = parseInt(pageInput.max);
+                if (page < 1 || page > maxPage) {
+                    alert(`Введите номер страницы от 1 до ${maxPage}`);
+                    return;
+                }
+                let urlParams = new URLSearchParams(window.location.search);
+                urlParams.set("page", page);
+                window.location.search = urlParams.toString();
+            });
+
+            // Позволяет переходить по нажатию Enter
+            pageInput.addEventListener("keypress", function (event) {
+                if (event.key === "Enter") {
+                    goToPageButton.click();
+                    event.preventDefault();
+                }
+            });
+        });
+    </script>
+
+{% endblock %}
