@@ -3,6 +3,8 @@ from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
+from django.urls import reverse
+
 from data_generator.forms import CustomUserCreationForm, CustomUserForm, DataBaseUserForm
 from data_generator.models import DataBaseUser, AppSettings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -16,7 +18,7 @@ def home(request):
 
 
 def register(request):
-    """Регистрация пользователя"""
+    """Регистрация"""
     if request.method == "POST":
         form = CustomUserCreationForm(request.POST, request.FILES)
         if form.is_valid():
@@ -34,14 +36,15 @@ def register(request):
 
 
 def logout_view(request):
-    """Выход пользователя"""
+    """Выход"""
     logout(request)
     return redirect('home')
 
 
+# TODO ПРОФИЛЬ
 @login_required
 def profile(request):
-    """Профиль пользователя"""
+    """Профиль"""
     search_query = request.GET.get("search", "").strip()
     user_databases = DataBaseUser.objects.filter(user=request.user)
     if search_query:
@@ -55,8 +58,8 @@ def profile(request):
 
 
 @login_required
-def edit_profile(request):
-    """Редактирование профиля пользователя"""
+def profile_edit(request):
+    """Редактирование профиля"""
     user = request.user
     if request.method == 'POST':
         form = CustomUserForm(request.POST, request.FILES, instance=user)
@@ -69,42 +72,48 @@ def edit_profile(request):
     else:
         form = CustomUserForm(instance=user)
     return render(request,
-                  template_name='edit_profile.html',
-                  context={'form': form})
+                  template_name='profile_edit.html',
+                  context={'user': user,
+                           'form': form})
 
 
+# TODO ПРОЕКТЫ
 @login_required
-def my_projects(request):
+def projects(request):
     """Проекты"""
     search_query = request.GET.get("search", "").strip()
     paginator_projects = AppSettings.objects.first()
     projects = DataBaseUser.objects.filter(user=request.user)
     if search_query:
         projects = projects.filter(Q(db_project__icontains=search_query) | Q(db_name__icontains=search_query))
-    projects = projects.order_by("created")
+    projects = projects.order_by("-updated")
     page_size = paginator_projects.paginator_projects if paginator_projects else 4
     paginator = Paginator(projects, page_size)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
     return render(request,
-                  template_name="my_projects.html",
+                  template_name="projects.html",
                   context={
                       "projects": page_obj,
                       "search_query": search_query})
 
 
 @login_required
-def database_detail(request, pk):
-    """Страница информации о конкретной базе данных пользователя"""
-    database = get_object_or_404(DataBaseUser, pk=pk)
-    return render(request, template_name='database_detail.html', context={
-        'database': database
-    })
+def project_delete(request, pk: int):
+    """Удаление проекта"""
+    project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
+    if request.method == "POST":
+        next_url = request.POST.get("next") or reverse("projects")
+        project_name = project.db_project
+        project.delete()
+        messages.success(request, f'Проект «{project_name}» удалён.')
+        return redirect(next_url)
+    return redirect("projects")
 
 
 @login_required
-def database_edit(request, pk):
-    """Редактирование информации о базе данных и проверка подключения"""
+def projects_edit(request, pk):
+    """Редактирование проекта"""
     app_settings = AppSettings.objects.first()
     connect_timeout = app_settings.connect_timeout_db if app_settings else 5
     database = get_object_or_404(DataBaseUser, pk=pk)
@@ -138,7 +147,24 @@ def database_edit(request, pk):
     else:
         form = DataBaseUserForm(instance=database)
         form.fields['db_password'].widget.attrs['value'] = database.db_password
-    return render(request, template_name='database_edit.html', context={
+    return render(request, template_name='projects_edit.html', context={
         'form': form,
         'database': database
     })
+
+
+@login_required
+def database(request, pk):
+    """Информации о базе данных"""
+    database = get_object_or_404(DataBaseUser, pk=pk)
+    return render(request, template_name='database.html', context={
+        'database': database
+    })
+
+# @login_required
+# def database_delete(request, pk):
+#     """Удаление проекта базы данных"""
+#     database = get_object_or_404(DataBaseUser, pk=pk)
+#     database.delete()
+#     messages.success(request, 'Проект успешно удален.')
+#     return redirect('projects')

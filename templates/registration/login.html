@@ -7,7 +7,7 @@
 
     <!-- Отображение ошибок -->
     {% if form.errors %}
-        <div class="alert alert-danger">Неверное имя пользователя или пароль</div>
+        <div class="alert alert-danger">Неверный логин или пароль</div>
     {% endif %}
 
     {% if messages %}
@@ -21,7 +21,7 @@
             <form method="post">
                 {% csrf_token %}
                 <div class="mb-3 row">
-                    <label for="id_username" class="col-sm-4 col-form-label text-end">Имя пользователя:</label>
+                    <label for="id_username" class="col-sm-4 col-form-label text-end">Логин:</label>
                     <div class="col-sm-8">
                         <input type="text" class="form-control" id="id_username" name="username" required>
                     </div>

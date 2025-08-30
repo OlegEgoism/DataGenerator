@@ -19,23 +19,41 @@ from django.contrib import admin
 from django.conf.urls.static import static
 from django.urls import path
 from django.contrib.auth import views as auth_views
-from data_generator.views import home, profile, logout_view, register, edit_profile, my_projects, database_detail, database_edit
+from data_generator.views import (
+    home,
+    register,
+    logout_view,
+    profile,
+    profile_edit,
+
+    projects,
+    database,
+    projects_edit, project_delete)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
-    path('profile/', profile, name='profile'),
-
-    path('my_projects/', my_projects, name='my_projects'),
-
-    path('database/<int:pk>/', database_detail, name='database_detail'),
-
-    path('database/<int:pk>/edit/', database_edit, name='database_edit'),
-
-    path('profile/edit/', edit_profile, name='edit_profile'),
     path('register/', register, name='register'),
     path('login/', auth_views.LoginView.as_view(), name='login'),
     path('logout/', logout_view, name='logout'),
+
+    path('profile/', profile, name='profile'),
+    path('profile_edit/', profile_edit, name='profile_edit'),
+
+    path("projects/", projects, name="projects"),
+    path("project_delete/<int:pk>/", project_delete, name="project_delete"),
+    path('projects_edit/<int:pk>/', projects_edit, name='projects_edit'),
+
+
+    path('database/<int:pk>/', database, name='database'),
+
+    # path('database/<int:pk>/edit/', projects_edit, name='projects_edit'),
+
+
+
+
+
+
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

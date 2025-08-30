@@ -23,7 +23,7 @@
                     </div>
                 {% endif %}
                 <div class="mb-3 row">
-                    <label for="id_username" class="col-sm-5 col-form-label text-end">Имя пользователя:</label>
+                    <label for="id_username" class="col-sm-5 col-form-label text-end">Логин:</label>
                     <div class="col-sm-7"><input type="text" class="form-control" id="id_username" name="username" value="{{ form.username.value|default_if_none:'' }}" required></div>
                 </div>
                 <div class="mb-3 row">

@@ -36,9 +36,8 @@ class CustomUserForm(forms.ModelForm):
 
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'phone_number', 'position', 'photo']
+        fields = ['email', 'phone_number', 'position', 'photo']
         widgets = {
-            'username': forms.TextInput(attrs={'class': 'form-control'}),
             'email': forms.EmailInput(attrs={'class': 'form-control'}),
             'phone_number': forms.TextInput(attrs={'class': 'form-control'}),
             'position': forms.TextInput(attrs={'class': 'form-control'}),

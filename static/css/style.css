@@ -4,7 +4,7 @@
 }
 
 .panel-input {
-    max-width: 600px
+    max-width: 720px
 }
 
 .db-image {
@@ -12,6 +12,9 @@
     height: 30px;
     object-fit: cover;
     border-radius: 5px;
+}
+.date_info {
+    font-size: 12px;
 }
 /*Меню страницы*/
 
@@ -41,7 +44,6 @@
     object-fit: cover; /* Обрезает изображение по размеру */
     border: 1px solid #fff; /* Тонкая белая рамка для видимости */
 }
-
 /*Аватар профиля*/
 
 
