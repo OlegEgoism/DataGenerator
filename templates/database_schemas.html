@@ -3,8 +3,16 @@
 {% block title %}Схемы базы данных{% endblock %}
 
 {% block content %}
-    <h2 class="text-center mb-4">Схемы базы данных</h2>
-    <div class="card shadow-lg border-0 mx-auto" style="max-width: 800px;">
+
+    {% if error_message %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
+        </div>
+    {% endif %}
+
+
+    <h2 class="text-center mb-4">Схемы базы данных: {{ project.db_name }}</h2>
+    <div class="card shadow-lg border-0 mx-auto panel-input">
         <div class="card-body text-top">
             <h5 class="card-title d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center gap-2">
@@ -12,26 +20,19 @@
                     <span>{{ project.data_base_name }}</span>
                 </div>
             </h5>
-            <hr>
             <h5><strong>Проект:</strong> {{ project.db_project }}</h5>
 
-            {% if error_message %}
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
-                </div>
-            {% else %}
-                <h5><strong>Доступные схемы:</strong></h5>
-                <ul class="list-group">
-                    {% for schema in schemas %}
-                        <li class="list-group-item">
-                            <i class="bi bi-folder"></i>
-                            {#                            <a href="{% url 'schema_tables' project.pk schema %}" class="text-decoration-none">#}
-                            {{ schema }}
-                            </a>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
+            <h5><strong>Доступные схемы:</strong></h5>
+            <ul class="list-group">
+                {% for schema in schemas %}
+                    <li class="list-group-item">
+                        <i class="bi bi-folder"></i>
+                        {#                            <a href="{% url 'schema_tables' project.pk schema %}" class="text-decoration-none">#}
+                        {{ schema }}
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
             <div class="d-flex justify-content-between mt-3">
                 <a href="{% url 'projects' %}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Назад
