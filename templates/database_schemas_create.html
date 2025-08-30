@@ -8,8 +8,8 @@
         <div class="card-body">
             <form method="post">
                 {% csrf_token %}
-                <div class="mb-3 row align-items-center">
-                    <label for="schema_name" class="col-sm-4 col-form-label"><strong>Название схемы:</strong></label>
+                <div class="mb-2 row align-items-center">
+                    <label for="schema_name" class="col-sm-4 col-form-label text-end"><strong>Название схемы:</strong></label>
                     <div class="col-sm-8">
                         <input type="text" class="form-control" id="schema_name" name="schema_name" required>
                     </div>

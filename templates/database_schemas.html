@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Схемы базы данных{% endblock %}
 
@@ -9,6 +10,7 @@
             <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
         </div>
     {% endif %}
+
     <h2 class="text-center mb-4">Схемы базы данных: {{ project.db_name }}</h2>
     <div class="card shadow-lg border-0 mx-auto panel-input">
         <div class="card-body text-top">
@@ -21,23 +23,43 @@
             <hr>
 
             <h5><strong>Проект:</strong> {{ project.db_project }}</h5>
-            <h5><strong>Доступные схемы:</strong></h5>
-            <ul class="list-group">
-                {% for schema in schemas %}
-                    <li class="list-group-item">
-                        <i class="bi bi-folder"></i> {{ schema }}
-                    </li>
-                {% empty %}
-                    <div class=" alert alert-warning text-center">Схем не найдено.</div>
-                {% endfor %}
-            </ul>
-
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                <form method="get" class="d-flex gap-2 flex-grow-1">
+                    <input type="text" name="search" id="searchInput" class="form-control" placeholder="Поиск по названию схемы" value="{{ request.GET.search }}">
+                    <button type="button" id="clearSearch" class="btn btn-outline-secondary"><i class="bi bi-x-circle"></i></button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+                </form>
+            </div>
+            <h5><strong>Схемы:</strong></h5>
+            {% if schemas %}
+                <ul class="list-group">
+                    {% for schema in schemas %}
+                        <li class="list-group-item">
+                            <i class="bi bi-folder"></i>
+                            <a href="{% url 'database_schemas_tables' project.pk schema %}" class="text-decoration-none">
+                                {{ schema }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <div class="alert alert-warning text-center">
+                    {% if request.GET.search %}
+                        По запросу <strong>"{{ request.GET.search }}"</strong> ничего не найдено.
+                    {% else %}
+                        Схем не найдено.
+                    {% endif %}
+                </div>
+            {% endif %}
             <div class="d-flex justify-content-between mt-3">
                 <a href="{% url 'projects' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Назад</a>
                 {% if not error_message %}
-                    <a href="{% url 'database_schemas_create' project.pk %}" class="btn btn-success"><i class="bi bi-plus-lg"></i> Создать схему</a>
+                    <a href="{% url 'database_schemas_create' project.pk %}" class="btn btn-success"> <i class="bi bi-plus-lg"></i> Создать схему </a>
                 {% endif %}
             </div>
         </div>
     </div>
+
+    {# скрипт очистки поля поиска #}
+    <script src="{% static 'js/search.js' %}"></script>
 {% endblock %}

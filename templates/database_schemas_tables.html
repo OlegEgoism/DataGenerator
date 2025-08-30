@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Таблицы схемы {{ schema_name }}{% endblock %}
+
+{% block content %}
+    <h2 class="text-center mb-4">Таблицы в схеме {{ schema_name }}</h2>
+    <div class="card shadow-lg border-0 mx-auto" style="max-width: 800px;">
+        <div class="card-body text-top">
+            <h5><strong>Проект:</strong> {{ project.db_project }}</h5>
+            <h5><strong>База данных:</strong> {{ project.db_name }}</h5>
+            <h5><strong>Схема:</strong> {{ schema_name }}</h5>
+            <hr>
+            {% if error_message %}
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
+                </div>
+            {% else %}
+                <h5>Доступные таблицы:</h5>
+                {% if tables %}
+                    <ul class="list-group">
+                        {% for table in tables %}
+                            <li class="list-group-item">
+                                <i class="bi bi-table"></i>
+                                <a href="{% url 'table_columns' project.pk schema_name table %}" class="text-decoration-none">
+                                    {{ table }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">В данной схеме таблиц не найдено.</p>
+                {% endif %}
+            {% endif %}
+
+            <div class="d-flex justify-content-between mt-3">
+                <a href="{% url 'database_schemas' project.pk %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
+{#                <a href="{% url 'create_table' project.pk schema_name %}" class="btn btn-success">#}
+                    <i class="bi bi-plus-lg"></i> Создать таблицу
+{#                </a>#}
+            </div>
+        </div>
+    </div>
+{% endblock %}

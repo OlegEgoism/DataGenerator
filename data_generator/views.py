@@ -219,29 +219,67 @@ def project_delete(request, pk: int):
 
 
 # TODO БАЗА ДАННЫХ
+# @login_required
+# def database_schemas(request, pk):
+#     """Схемы базы данных"""
+#     project = get_object_or_404(DataBaseUser, pk=pk)
+#     schemas, error_message = [], None
+#     connection, error_message = get_db_connection(project)
+#     if connection:
+#         with connection.cursor() as cursor:
+#             cursor.execute("""
+#                 SELECT schema_name
+#                 FROM information_schema.schemata
+#                 WHERE schema_name NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
+#                 ORDER BY schema_name;
+#             """)
+#             schemas = [row[0] for row in cursor.fetchall()]
+#         connection.close()
+#     return render(request,
+#                   template_name='database_schemas.html',
+#                   context={
+#                       'project': project,
+#                       'schemas': schemas,
+#                       'error_message': error_message}
+#                   )
 @login_required
 def database_schemas(request, pk):
     """Схемы базы данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
+
+    search_query = request.GET.get("search", "").strip()
     schemas, error_message = [], None
+
     connection, error_message = get_db_connection(project)
     if connection:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT schema_name 
-                FROM information_schema.schemata 
-                WHERE schema_name NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
-                ORDER BY schema_name;
-            """)
-            schemas = [row[0] for row in cursor.fetchall()]
-        connection.close()
-    return render(request,
-                  template_name='database_schemas.html',
-                  context={
-                      'project': project,
-                      'schemas': schemas,
-                      'error_message': error_message}
-                  )
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT schema_name
+                    FROM information_schema.schemata
+                    WHERE schema_name NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
+                    ORDER BY schema_name;
+                """)
+                schemas = [row[0] for row in cursor.fetchall()]
+        finally:
+            connection.close()
+
+    # Фильтрация по поисковому запросу (без учёта регистра)
+    if search_query:
+        q = search_query.lower()
+        schemas = [s for s in schemas if q in s.lower()]
+
+    return render(
+        request,
+        template_name='database_schemas.html',
+        context={
+            'project': project,
+            'schemas': schemas,
+            'error_message': error_message,
+            'search_query': search_query,
+        }
+    )
+
 
 
 @login_required
@@ -252,7 +290,7 @@ def database_schemas_create(request, pk):
     if request.method == "POST":
         schema_name = request.POST.get("schema_name").strip()
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", schema_name):
-            messages.warning(request, "Название схемы может содержать только буквы, цифры и '_', но не начинаться с цифры.")
+            messages.warning(request, "Название схемы может содержать только буквы, цифры и символ '_', но не начинаться с цифры.")
             return redirect("database_schemas_create", pk=pk)
         connection, error_message = get_db_connection(project)
         if connection:
@@ -286,3 +324,28 @@ def database_schemas_create(request, pk):
                       'project': project,
                       'error_message': error_message}
                   )
+
+
+@login_required
+def database_schemas_tables(request, pk, schema_name):
+    """Список таблиц в схеме базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    tables, error_message = [], None
+    connection, error_message = get_db_connection(project)
+    if connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = %s;
+            """, (schema_name,))
+            tables = [row[0] for row in cursor.fetchall()]
+        connection.close()
+    return render(request,
+                  template_name='database_schemas_tables.html',
+                  context={
+                      'project': project,
+                      'schema_name': schema_name,
+                      'tables': tables,
+                      'error_message': error_message
+                  })
