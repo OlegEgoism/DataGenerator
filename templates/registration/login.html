@@ -4,7 +4,6 @@
 {% block title %}Вход в систему{% endblock %}
 
 {% block content %}
-    <!-- Отображение ошибок -->
     {% if form.errors %}
         <div class="alert alert-danger">
             <ul class="mb-0">
@@ -19,11 +18,9 @@
             </ul>
         </div>
     {% endif %}
-    <!-- Отображение ошибок -->
 
-    <!-- Вход поьзователя -->
     <h1 class="text-center mb-2">Вход</h1>
-    <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
+    <div class="card shadow-lg border-0 mx-auto p-4 panel-input" style="max-width: 720px;">
         <div class="card-body">
             <form method="post">
                 {% csrf_token %}
@@ -38,22 +35,24 @@
                     <div class="col-sm-8">
                         <div class="input-group">
                             <input type="password" class="form-control" id="id_password" name="password" required>
-                            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword" aria-label="Показать/скрыть пароль">
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
                     </div>
                 </div>
                 <div class="mt-3 d-flex justify-content-end gap-2">
-                    <button type="submit" class="btn btn-primary bi bi-box-arrow-in-right"> Войти</button>
-                    <a href="{% url 'register' %}" class="btn btn-success bi bi-person-plus"> Зарегистрироваться</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-box-arrow-in-right"></i> Войти
+                    </button>
+                    <a href="{% url 'register' %}" class="btn btn-success">
+                        <i class="bi bi-person-plus"></i> Зарегистрироваться
+                    </a>
                 </div>
             </form>
         </div>
     </div>
-    <!-- Вход поьзователя -->
-    
-    <!-- Отображение пароля -->
+
+    <!-- Скрипт переключения пароля -->
     <script src="{% static 'js/password.js' %}"></script>
-    <!-- Отображение пароля -->
 {% endblock %}

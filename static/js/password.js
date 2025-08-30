@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function setupPasswordToggle(toggleId, passwordId) {
         const toggleButton = document.querySelector(`#${toggleId}`);
         const passwordField = document.querySelector(`#${passwordId}`);
-        const icon = toggleButton.querySelector("i");
+        const icon = toggleButton ? toggleButton.querySelector("i") : null;
 
         if (!toggleButton || !passwordField || !icon) {
             console.warn(`Элементы для ${toggleId} не найдены.`);
@@ -26,6 +26,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Инициализация для всех полей
     setupPasswordToggle("togglePassword", "id_password");   // Вход
-    setupPasswordToggle("togglePassword1", "id_password1"); // Пароль
-    setupPasswordToggle("togglePassword2", "id_password2"); // Подтверждение
+    setupPasswordToggle("togglePassword1", "id_password1"); // Регистрация — Пароль
+    setupPasswordToggle("togglePassword2", "id_password2"); // Регистрация — Подтверждение
 });
