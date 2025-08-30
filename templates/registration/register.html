@@ -4,78 +4,60 @@
 {% block title %}Регистрация{% endblock %}
 
 {% block content %}
+
+    {% if form.errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+                {% for error in form.non_field_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
     <h1 class="text-center mb-2">Регистрация</h1>
-    <div class="card shadow-lg border-0 mx-auto p-4 panel-input" style="max-width: 900px;">
+    <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
         <div class="card-body">
             <form method="post" action="{% url 'register' %}" enctype="multipart/form-data">
                 {% csrf_token %}
 
-                {% if form.errors %}
-                    <div class="alert alert-danger">
-                        <ul class="mb-0">
-                            {% for error in form.non_field_errors %}
-                                <li>{{ error }}</li>
-                            {% endfor %}
-                            {% for field in form %}
-                                {% for error in field.errors %}
-                                    <li>{{ error }}</li>
-                                {% endfor %}
-                            {% endfor %}
-                        </ul>
-                    </div>
-                {% endif %}
-
-                <div class="mb-3 row">
-                    <label for="id_username" class="col-sm-5 col-form-label text-end">Логин:</label>
-                    <div class="col-sm-7">
-                        <input type="text" class="form-control" id="id_username" name="username"
-                               value="{{ form.username.value|default_if_none:'' }}" required>
-                    </div>
+                <div class="mb-2 row">
+                    <label for="id_username" class="col-sm-5 col-form-label text-end"><strong>Логин:</strong></label>
+                    <div class="col-sm-7"><input type="text" class="form-control" id="id_username" name="username" value="{{ form.username.value|default_if_none:'' }}" required></div>
                 </div>
-
-                <div class="mb-3 row">
-                    <label for="id_email" class="col-sm-5 col-form-label text-end">Email:</label>
-                    <div class="col-sm-7">
-                        <input type="email" class="form-control" id="id_email" name="email"
-                               value="{{ form.email.value|default_if_none:'' }}" required>
-                    </div>
+                <div class="mb-2 row">
+                    <label for="id_email" class="col-sm-5 col-form-label text-end"><strong>Email:</strong></label>
+                    <div class="col-sm-7"><input type="email" class="form-control" id="id_email" name="email" value="{{ form.email.value|default_if_none:'' }}" required></div>
                 </div>
-
-                <div class="mb-3 row">
-                    <label for="id_photo" class="col-sm-5 col-form-label text-end">Фото:</label>
-                    <div class="col-sm-7">
-                        <input type="file" class="form-control" id="id_photo" name="photo" accept="image/*">
-                    </div>
+                <div class="mb-2 row">
+                    <label for="id_photo" class="col-sm-5 col-form-label text-end"><strong>Фото:</strong></label>
+                    <div class="col-sm-7"><input type="file" class="form-control" id="id_photo" name="photo" accept="image/*"></div>
                 </div>
-
-                <div class="mb-3 row">
-                    <label for="id_password1" class="col-sm-5 col-form-label text-end">Пароль:</label>
+                <div class="mb-2 row">
+                    <label for="id_password1" class="col-sm-5 col-form-label text-end"><strong>Пароль:</strong></label>
                     <div class="col-sm-7">
                         <div class="input-group">
                             <input type="password" class="form-control" id="id_password1" name="password1" required>
-                            <button class="btn btn-outline-secondary" type="button" id="togglePassword1" aria-label="Показать/скрыть пароль">
-                                <i class="bi bi-eye"></i>
-                            </button>
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword1" aria-label="Показать/скрыть пароль"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
                 </div>
-
-                <div class="mb-3 row">
-                    <label for="id_password2" class="col-sm-5 col-form-label text-end">Подтверждение пароля:</label>
+                <div class="mb-2 row">
+                    <label for="id_password2" class="col-sm-5 col-form-label text-end"><strong>Подтверждение пароля:</strong></label>
                     <div class="col-sm-7">
                         <div class="input-group">
                             <input type="password" class="form-control" id="id_password2" name="password2" required>
-                            <button class="btn btn-outline-secondary" type="button" id="togglePassword2" aria-label="Показать/скрыть пароль">
-                                <i class="bi bi-eye"></i>
-                            </button>
+                            <button class="btn btn-outline-secondary" type="button" id="togglePassword2" aria-label="Показать/скрыть пароль"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
                 </div>
-
                 <div class="mt-3 d-flex justify-content-end gap-2">
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check-circle"></i> Создать профиль
-                    </button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-circle"></i> Создать профиль</button>
                 </div>
             </form>
         </div>

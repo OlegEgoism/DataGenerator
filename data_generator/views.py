@@ -14,7 +14,8 @@ from django.contrib import messages
 def home(request):
     """Главная"""
     return render(request,
-                  template_name='home.html')
+                  template_name='home.html'
+                  )
 
 
 def register(request):
@@ -32,7 +33,8 @@ def register(request):
         form = CustomUserCreationForm()
     return render(request,
                   template_name="registration/register.html",
-                  context={"form": form})
+                  context={"form": form}
+                  )
 
 
 def logout_view(request):
@@ -54,7 +56,8 @@ def profile(request):
                   context={
                       'user': request.user,
                       'user_databases': user_databases,
-                      'search_query': search_query})
+                      'search_query': search_query}
+                  )
 
 
 @login_required
@@ -74,7 +77,8 @@ def profile_edit(request):
     return render(request,
                   template_name='profile_edit.html',
                   context={'user': user,
-                           'form': form})
+                           'form': form}
+                  )
 
 
 # TODO ПРОЕКТЫ
@@ -95,7 +99,28 @@ def projects(request):
                   template_name="projects.html",
                   context={
                       "projects": page_obj,
-                      "search_query": search_query})
+                      "search_query": search_query}
+                  )
+
+
+@login_required
+def project_create(request):
+    """Создать проект"""
+    user = request.user
+    if request.method == 'POST':
+        form = DataBaseUserForm(request.POST)
+        if form.is_valid():
+            project = form.save(commit=False)
+            project.user = user
+            project.save()
+            messages.success(request, "Проект успешно создан!", extra_tags="alert alert-success")
+            return redirect('projects')
+    else:
+        form = DataBaseUserForm()
+    return render(request,
+                  template_name='project_create.html',
+                  context={
+                      'form': form})
 
 
 @login_required

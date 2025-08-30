@@ -45,9 +45,6 @@ class CustomUserForm(forms.ModelForm):
         }
 
 
-from django import forms
-from .models import DataBaseUser
-
 class DataBaseUserForm(forms.ModelForm):
     """Редактирование данных проекта"""
 
@@ -55,7 +52,6 @@ class DataBaseUserForm(forms.ModelForm):
         model = DataBaseUser
         fields = ('data_base_name', 'db_project', 'db_name', 'db_user', 'db_password', 'db_host', 'db_port')
         widgets = {
-            # было: forms.Select(attrs={'class': 'form-control'})
             'data_base_name': forms.Select(attrs={'class': 'form-select', 'id': 'id_data_base_name'}),
             'db_project': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите название проекта'}),
             'db_name': forms.TextInput(attrs={'class': 'form-control'}),
@@ -67,5 +63,4 @@ class DataBaseUserForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Плейсхолдер (верхняя пустая опция). Оставь/убери по желанию.
         self.fields['data_base_name'].empty_label = '— Выберите подключение —'

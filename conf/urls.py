@@ -12,6 +12,7 @@ from data_generator.views import (
     profile_edit,
 
     projects,
+    project_create,
     projects_edit,
     project_delete,
 
@@ -29,6 +30,7 @@ urlpatterns = [
     path('profile_edit/', profile_edit, name='profile_edit'),
 
     path("projects/", projects, name="projects"),
+    path('project_create/', project_create, name='project_create'),
     path("project_delete/<int:pk>/", project_delete, name="project_delete"),
     path('projects_edit/<int:pk>/', projects_edit, name='projects_edit'),
 
@@ -39,4 +41,4 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
