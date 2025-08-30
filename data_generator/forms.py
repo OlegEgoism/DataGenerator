@@ -53,7 +53,7 @@ class DataBaseUserForm(forms.ModelForm):
         fields = ('data_base_name', 'db_project', 'db_name', 'db_user', 'db_password', 'db_host', 'db_port')
         widgets = {
             'data_base_name': forms.Select(attrs={'class': 'form-select', 'id': 'id_data_base_name'}),
-            'db_project': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Введите название проекта'}),
+            'db_project': forms.TextInput(attrs={'class': 'form-control'}),
             'db_name': forms.TextInput(attrs={'class': 'form-control'}),
             'db_user': forms.TextInput(attrs={'class': 'form-control'}),
             'db_password': forms.PasswordInput(attrs={'class': 'form-control', 'id': 'id_db_password'}, render_value=True),

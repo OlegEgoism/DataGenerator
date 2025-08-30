@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load static %}
 
 {% block title %}Редактирование проекта: {{ database.db_project }}{% endblock %}
 
@@ -94,21 +93,6 @@
         </div>
     </div>
 
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const btn = document.getElementById('togglePassword');
-            const input = document.getElementById('id_db_password');
-
-            if (btn && input) {
-                btn.addEventListener('click', function () {
-                    const isPwd = input.getAttribute('type') === 'password';
-                    input.setAttribute('type', isPwd ? 'text' : 'password');
-                    btn.innerHTML = isPwd ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
-                });
-            }
-        });
-    </script>
 
 
 {% endblock %}
