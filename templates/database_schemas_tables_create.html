@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Создание таблицы{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center">Создание таблицы в схеме {{ schema_name }}</h2>
+    <div class="card shadow-lg border-0 mx-auto panel-input">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3 row align-items-center">
+                    <label for="table_name" class="col-sm-4 col-form-label"><strong>Название таблицы:</strong></label>
+                    <div class="col-sm-8">
+                        <input type="text" class="form-control" id="table_name" name="table_name" required>
+                    </div>
+                </div>
+
+                <h5>Столбцы</h5>
+                <div id="columns">
+                    <div class="row mb-2 column-row">
+                        <div class="col-md-5">
+                            <input type="text" class="form-control" name="column_name[]" placeholder="Название столбца" required>
+                        </div>
+                        <div class="col-md-5">
+                            <select class="form-control" name="column_type[]">
+                                <option value="INTEGER">Целое число</option>
+                                <option value="VARCHAR(255)">Текст</option>
+                                <option value="BOOLEAN">Логический</option>
+                                <option value="FLOAT">Число с плавающей запятой</option>
+                                <option value="DATE">Дата</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-danger remove-column"><i class="bi bi-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-primary mt-3" id="addColumn">
+                    <i class="bi bi-plus-lg"></i> Добавить столбец
+                </button>
+
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left"></i> Назад
+                    </a>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-plus-lg"></i> Создать таблицу
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("addColumn").addEventListener("click", function() {
+        let columnsDiv = document.getElementById("columns");
+        let newColumn = document.createElement("div");
+        newColumn.classList.add("row", "mb-2", "column-row");
+        newColumn.innerHTML = `
+            <div class="col-md-5">
+                <input type="text" class="form-control" name="column_name[]" placeholder="Название столбца" required>
+            </div>
+            <div class="col-md-5">
+                <select class="form-control" name="column_type[]">
+                    <option value="INTEGER">Целое число</option>
+                    <option value="VARCHAR(255)">Текст</option>
+                    <option value="BOOLEAN">Логический</option>
+                    <option value="FLOAT">Число с плавающей запятой</option>
+                    <option value="DATE">Дата</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-danger remove-column"><i class="bi bi-trash"></i></button>
+            </div>
+        `;
+        columnsDiv.appendChild(newColumn);
+    });
+
+    document.getElementById("columns").addEventListener("click", function(event) {
+        if (event.target.closest(".remove-column")) {
+            event.target.closest(".column-row").remove();
+        }
+    });
+});
+</script>
+
+{% endblock %}

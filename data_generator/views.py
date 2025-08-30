@@ -2,7 +2,6 @@ import re
 
 import psycopg2
 from django.contrib.auth import logout
-from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
@@ -11,8 +10,9 @@ from psycopg2 import sql
 from data_generator.db_connection import get_db_connection
 from data_generator.forms import CustomUserCreationForm, CustomUserForm, DataBaseUserForm
 from data_generator.models import DataBaseUser, AppSettings
-from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404, redirect, render
 
 
 def home(request):
@@ -22,6 +22,7 @@ def home(request):
                   )
 
 
+# TODO АВТОРИЗАЦИЯ/РЕГИСТРАЦИЯ
 def register(request):
     """Регистрация"""
     if request.method == "POST":
@@ -218,15 +219,13 @@ def project_delete(request, pk: int):
     return redirect("projects")
 
 
-# TODO БАЗА ДАННЫХ
+# TODO СХЕМЫ
 @login_required
 def database_schemas(request, pk):
     """Схемы базы данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
-
     search_query = request.GET.get("search", "").strip()
     schemas, error_message = [], None
-
     connection, error_message = get_db_connection(project)
     if connection:
         try:
@@ -240,23 +239,17 @@ def database_schemas(request, pk):
                 schemas = [row[0] for row in cursor.fetchall()]
         finally:
             connection.close()
-
-    # Фильтрация по поисковому запросу (без учёта регистра)
     if search_query:
         q = search_query.lower()
         schemas = [s for s in schemas if q in s.lower()]
-
-    return render(
-        request,
-        template_name='database_schemas.html',
-        context={
-            'project': project,
-            'schemas': schemas,
-            'error_message': error_message,
-            'search_query': search_query,
-        }
-    )
-
+    return render(request,
+                  template_name='database_schemas.html',
+                  context={
+                      'project': project,
+                      'schemas': schemas,
+                      'error_message': error_message,
+                      'search_query': search_query}
+                  )
 
 
 @login_required
@@ -305,7 +298,7 @@ def database_schemas_create(request, pk):
 
 @login_required
 def database_schema_delete(request, pk, schema_name: str):
-    """Удаление схемы (CASCADE). Только POST."""
+    """Удаление схемы в базе данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
     next_url = request.POST.get("next") or reverse("database_schemas", args=[pk])
     if request.method != "POST":
@@ -330,7 +323,7 @@ def database_schema_delete(request, pk, schema_name: str):
 
 @login_required
 def database_schema_edit(request, pk, schema_name: str):
-    """Переименование схемы. Только POST."""
+    """Переименование схемы в базе данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
     next_url = request.POST.get("next") or reverse("database_schemas", args=[pk])
     if request.method != "POST":
@@ -374,29 +367,225 @@ def database_schema_edit(request, pk, schema_name: str):
     return redirect(next_url)
 
 
-
-
-
+# TODO ТАБЛИЦЫ
 @login_required
 def database_schemas_tables(request, pk, schema_name):
     """Список таблиц в схеме базы данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
+    search_query = request.GET.get("search", "").strip()
     tables, error_message = [], None
     connection, error_message = get_db_connection(project)
     if connection:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT table_name 
-                FROM information_schema.tables 
-                WHERE table_schema = %s;
-            """, (schema_name,))
-            tables = [row[0] for row in cursor.fetchall()]
-        connection.close()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT table_name
+                    FROM information_schema.tables
+                    WHERE table_schema = %s
+                    ORDER BY table_name;
+                """, (schema_name,))
+                tables = [row[0] for row in cursor.fetchall()]
+        finally:
+            connection.close()
+    if search_query:
+        q = search_query.lower()
+        tables = [t for t in tables if q in t.lower()]
     return render(request,
                   template_name='database_schemas_tables.html',
                   context={
                       'project': project,
                       'schema_name': schema_name,
                       'tables': tables,
-                      'error_message': error_message
-                  })
+                      'error_message': error_message,
+                      'search_query': search_query}
+                  )
+
+
+@login_required
+def database_schemas_tables_delete(request, pk, schema_name: str, table_name: str):
+    """Удаление таблицы в схеме базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    next_url = request.POST.get("next") or reverse("database_schemas_tables", args=[pk, schema_name])
+    if request.method != "POST":
+        return redirect(next_url)
+    conn, error_message = get_db_connection(project)
+    if not conn:
+        messages.warning(request, error_message or "Ошибка подключения к БД.")
+        return redirect(next_url)
+    try:
+        with conn.cursor() as cur:
+            drop_stmt = sql.SQL("DROP TABLE {} CASCADE;").format(sql.Identifier(schema_name, table_name))
+            cur.execute(drop_stmt)
+        conn.commit()
+        messages.success(request, f"Таблица «{schema_name}.{table_name}» успешно удалена.")
+    except Exception as e:
+        conn.rollback()
+        messages.warning(request, f"Ошибка удаления таблицы «{schema_name}.{table_name}»: {str(e)}")
+    finally:
+        conn.close()
+    return redirect(next_url)
+
+
+@login_required
+def database_schemas_tables_edit(request, pk, schema_name: str, table_name: str):
+    """Переименование таблицы в схеме базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    next_url = request.POST.get("next") or reverse("database_schemas_tables", args=[pk, schema_name])
+    if request.method != "POST":
+        return redirect(next_url)
+    new_name = (request.POST.get("new_table_name") or "").strip()
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", new_name):
+        messages.warning(request, "Недопустимое имя таблицы. Разрешены латинские буквы, цифры и «_», первый символ — буква или «_».")
+        return redirect(next_url)
+    if new_name == table_name:
+        messages.info(request, "Имя таблицы не изменилось.")
+        return redirect(next_url)
+    conn, error_message = get_db_connection(project)
+    if not conn:
+        messages.warning(request, error_message or "Ошибка подключения к БД.")
+        return redirect(next_url)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s AND table_name = %s
+                );
+            """, (schema_name, new_name))
+            exists = cur.fetchone()[0]
+            if exists:
+                messages.warning(request, f"Таблица «{schema_name}.{new_name}» уже существует.")
+                return redirect(next_url)
+            alter_stmt = sql.SQL("ALTER TABLE {} RENAME TO {};").format(
+                sql.Identifier(schema_name, table_name),
+                sql.Identifier(new_name)
+            )
+            cur.execute(alter_stmt)
+        conn.commit()
+        messages.success(request, f"Таблица «{schema_name}.{table_name}» переименована в «{schema_name}.{new_name}».")
+    except Exception as e:
+        conn.rollback()
+        messages.warning(request, f"Ошибка переименования таблицы: {str(e)}")
+    finally:
+        conn.close()
+    return redirect(next_url)
+
+
+@login_required
+def database_schemas_tables_create(request, pk, schema_name):
+    """Создание таблицы в схеме базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    error_message = None
+    if request.method == "POST":
+        table_name = request.POST.get("table_name")
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+            messages.error(request, "Название таблицы может содержать только буквы, цифры и '_', но не начинаться с цифры.")
+            return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+        column_names = request.POST.getlist("column_name[]")
+        column_types = request.POST.getlist("column_type[]")
+        if not table_name or not column_names:
+            messages.error(request, "Введите название таблицы и хотя бы один столбец.")
+            return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+        connection, error_message = get_db_connection(project)
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    check_table_query = sql.SQL("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_schema = %s AND table_name = %s
+                        );
+                    """)
+                    cursor.execute(check_table_query, (schema_name, table_name))
+                    table_exists = cursor.fetchone()[0]
+                    if table_exists:
+                        messages.error(request, f"Таблица '{table_name}' уже существует в схеме '{schema_name}'.")
+                        return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+                    columns_sql = ", ".join([f'"{name}" {type}' for name, type in zip(column_names, column_types)])
+                    create_table_sql = sql.SQL(
+                        'CREATE TABLE {}.{} (id SERIAL PRIMARY KEY, {});'
+                    ).format(
+                        sql.Identifier(schema_name),
+                        sql.Identifier(table_name),
+                        sql.SQL(columns_sql)
+                    )
+                    cursor.execute(create_table_sql)
+                    connection.commit()
+                messages.success(request, f"Таблица '{table_name}' успешно создана в схеме '{schema_name}'.")
+                return redirect("schema_tables", pk=pk, schema_name=schema_name)
+            except Exception as e:
+                error_message = f"Ошибка создания таблицы: {str(e)}"
+            finally:
+                connection.close()
+    return render(request,
+                  template_name="database_schemas_tables_create.html",
+                  context={
+                      "project": project,
+                      "schema_name": schema_name,
+                      "error_message": error_message}
+                  )
+
+# TODO КОЛОНКИ
+@login_required
+def database_schemas_tables_columns(request, pk, schema_name, table_name):
+    """Колонки таблицы в схеме базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    columns, record_count, error_message = [], 0, None
+    connection, error_message = get_db_connection(project)
+
+    if connection:
+        try:
+            with connection.cursor() as cursor:
+                # Проверяем, существует ли таблица
+                check_table_query = sql.SQL("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_schema = %s AND table_name = %s
+                    );
+                """)
+                cursor.execute(check_table_query, (schema_name, table_name))
+                table_exists = cursor.fetchone()[0]
+
+                if not table_exists:
+                    error_message = f"Ошибка: Таблица '{table_name}' в схеме '{schema_name}' не существует!"
+                    return render(request, "table_columns.html", {
+                        "project": project,
+                        "schema_name": schema_name,
+                        "table_name": table_name,
+                        "columns": [],
+                        "record_count": 0,
+                        "error_message": error_message
+                    })
+
+                # Получаем список колонок таблицы
+                query = sql.SQL("""
+                    SELECT column_name, data_type
+                    FROM information_schema.columns
+                    WHERE table_schema = %s 
+                      AND table_name = %s;
+                """)
+                cursor.execute(query, (schema_name, table_name))
+                columns = cursor.fetchall()
+
+                # Получаем количество записей
+                count_query = sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
+                    sql.Identifier(schema_name),
+                    sql.Identifier(table_name)
+                )
+                cursor.execute(count_query)
+                record_count = cursor.fetchone()[0]
+
+        except Exception as e:
+            error_message = f"Ошибка: {str(e)}"
+        finally:
+            connection.close()
+
+    return render(request, "database_schemas_tables_columns.html", {
+        "project": project,
+        "schema_name": schema_name,
+        "table_name": table_name,
+        "columns": columns,
+        "record_count": record_count,
+        "error_message": error_message
+    })

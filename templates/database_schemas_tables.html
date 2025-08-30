@@ -1,34 +1,179 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block title %}Таблицы схемы {{ schema_name }}{% endblock %}
 
 {% block content %}
-    <h2 class="text-center mb-4">Таблицы в схеме {{ schema_name }}</h2>
-    <div class="card shadow-lg border-0 mx-auto" style="max-width: 800px;">
+
+    {% if error_message %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
+        </div>
+    {% endif %}
+
+    <h2 class="text-center mb-4">Схема: {{ schema_name }}</h2>
+
+    <div class="card shadow-lg border-0 mx-auto panel-input">
         <div class="card-body text-top">
+            <!-- Шапка с типом БД (как в database_schemas.html) -->
+            <h5 class="card-title d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <img class="db-image" src="{{ project.data_base_name.images_db.url }}" alt="{{ project.data_base_name.name }}">
+                    <span>{{ project.data_base_name }}</span>
+                </div>
+            </h5>
+            <hr>
+
             <h5><strong>Проект:</strong> {{ project.db_project }}</h5>
             <h5><strong>База данных:</strong> {{ project.db_name }}</h5>
-            <h5><strong>Схема:</strong> {{ schema_name }}</h5>
-            <hr>
+
+            <!-- Поиск по названию таблицы -->
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-2 mt-2">
+                <form method="get" class="d-flex gap-2 flex-grow-1">
+                    <input type="text"
+                           name="search"
+                           id="searchInput"
+                           class="form-control"
+                           placeholder="Поиск по названию таблицы"
+                           value="{{ request.GET.search }}">
+                    <button type="button" id="clearSearch" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </form>
+            </div>
+
+            <h5><strong>Таблицы:</strong></h5>
+
             {% if error_message %}
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
                 </div>
             {% else %}
-                <h5>Доступные таблицы:</h5>
                 {% if tables %}
                     <ul class="list-group">
                         {% for table in tables %}
-                            <li class="list-group-item">
-                                <i class="bi bi-table"></i>
-                                <a href="{% url 'table_columns' project.pk schema_name table %}" class="text-decoration-none">
-                                    {{ table }}
-                                </a>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-table"></i>
+                                    <a href="{% url 'database_schemas_tables_columns' project.pk schema_name table %}"
+                                       class="text-decoration-none">
+                                        {{ table }}
+                                    </a>
+                                </div>
+
+                                <!-- Действия над таблицей: Редактировать (переименовать) / Удалить -->
+                                <div class="d-flex gap-2">
+                                    <a href="#"
+                                       class="btn btn-success btn-sm"
+                                       data-bs-toggle="modal"
+                                       data-bs-target="#renameTableModal-{{ forloop.counter }}">
+                                        <i class="bi bi-pencil-square"></i> Редактировать
+                                    </a>
+                                    <button type="button"
+                                            class="btn btn-danger btn-sm"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteTableModal-{{ forloop.counter }}">
+                                        <i class="bi bi-trash3"></i> Удалить
+                                    </button>
+                                </div>
                             </li>
+
+                            <!-- MODAL: Переименовать таблицу -->
+                            <div class="modal fade" id="renameTableModal-{{ forloop.counter }}" tabindex="-1"
+                                 aria-labelledby="renameTableLabel-{{ forloop.counter }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="renameTableLabel-{{ forloop.counter }}">
+                                                Переименовать таблицу
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                    aria-label="Закрыть"></button>
+                                        </div>
+                                        <form method="post"
+                                              action="{% url 'database_schemas_tables_edit' project.pk schema_name table %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <div class="mb-2">
+                                                    <label class="form-label"><strong>Текущее имя:</strong></label>
+                                                    <div class="form-control-plaintext">{{ table }}</div>
+                                                </div>
+                                                <div class="mb-2">
+                                                    <label for="newTableName-{{ forloop.counter }}" class="form-label">
+                                                        Новое имя таблицы
+                                                    </label>
+                                                    <input type="text"
+                                                           class="form-control"
+                                                           id="newTableName-{{ forloop.counter }}"
+                                                           name="new_table_name"
+                                                           value="{{ table }}"
+                                                           required
+                                                           pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
+                                                           maxlength="63"
+                                                           placeholder="например, events_v2">
+                                                    <div class="form-text">
+                                                        Допустимы латинские буквы, цифры и «_», первый символ — буква или «_».
+                                                    </div>
+                                                </div>
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                                <button type="submit" class="btn btn-primary">
+                                                    <i class="bi bi-check2"></i> Переименовать
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- MODAL: Удалить таблицу -->
+                            <div class="modal fade" id="deleteTableModal-{{ forloop.counter }}" tabindex="-1"
+                                 aria-labelledby="deleteTableLabel-{{ forloop.counter }}" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="deleteTableLabel-{{ forloop.counter }}">
+                                                Удалить таблицу?
+                                            </h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                                    aria-label="Закрыть"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Вы действительно хотите удалить таблицу
+                                            <strong>«{{ schema_name }}.{{ table }}»</strong>?
+                                            <br>
+                                            Это действие <strong>необратимо</strong>.
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                                            <form method="post"
+                                                  action="{% url 'database_schemas_tables_delete' project.pk schema_name table %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                <button type="submit" class="btn btn-danger">
+                                                    <i class="bi bi-trash3"></i> Удалить
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                         {% endfor %}
                     </ul>
                 {% else %}
-                    <p class="text-muted">В данной схеме таблиц не найдено.</p>
+                    <div class="alert alert-warning text-center">
+                        {% if request.GET.search %}
+                            По запросу <strong>"{{ request.GET.search }}"</strong> ничего не найдено.
+                        {% else %}
+                            В данной схеме таблиц не найдено.
+                        {% endif %}
+                    </div>
                 {% endif %}
             {% endif %}
 
@@ -36,10 +181,16 @@
                 <a href="{% url 'database_schemas' project.pk %}" class="btn btn-secondary">
                     <i class="bi bi-arrow-left"></i> Назад
                 </a>
-{#                <a href="{% url 'create_table' project.pk schema_name %}" class="btn btn-success">#}
-                    <i class="bi bi-plus-lg"></i> Создать таблицу
-{#                </a>#}
+
+                {% if not error_message %}
+                    {# Добавите маршрут создания таблицы позже при необходимости #}
+                     <a href="{% url 'database_schemas_tables_create' project.pk schema_name %}" class="btn btn-success">
+                         <i class="bi bi-plus-lg"></i> Создать таблицу
+                       </a> 
+                {% endif %}
             </div>
         </div>
     </div>
+
+    <script src="{% static 'js/search.js' %}"></script>
 {% endblock %}
