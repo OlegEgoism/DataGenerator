@@ -13,11 +13,10 @@ from data_generator.views import (
 
     projects,
     project_create,
-    projects_edit,
+    project_edit,
     project_connection,
-    project_delete,
+    project_delete, database_schemas
 
-    database
 )
 
 urlpatterns = [
@@ -33,13 +32,13 @@ urlpatterns = [
 
     path("projects/", projects, name="projects"),
     path('project_create/', project_create, name='project_create'),
-    path('project_edit/<int:pk>/', projects_edit, name='projects_edit'),
+    path('project_edit/<int:pk>/', project_edit, name='projects_edit'),
     path('project_connection/<int:pk>/', project_connection, name='project_connection'),
     path("project_delete/<int:pk>/", project_delete, name="project_delete"),
 
-    path('database/<int:pk>/', database, name='database'),
+    path('database_schemas/<int:pk>/', database_schemas, name='database_schemas'),
 
-    # path('database/<int:pk>/edit/', projects_edit, name='projects_edit'),
+
 ]
 
 if settings.DEBUG:

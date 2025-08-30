@@ -22,35 +22,30 @@
                         </ul>
                     </div>
                 {% endif %}
-
                 <div class="mb-2 row">
                     <label for="{{ form.email.id_for_label }}" class="col-sm-5 col-form-label text-end"><strong>Email:</strong></label>
                     <div class="col-sm-7">
                         {{ form.email }}
                     </div>
                 </div>
-
                 <div class="mb-2 row">
                     <label for="{{ form.phone_number.id_for_label }}" class="col-sm-5 col-form-label text-end"><strong>Телефон:</strong></label>
                     <div class="col-sm-7">
                         {{ form.phone_number }}
                     </div>
                 </div>
-
                 <div class="mb-2 row">
                     <label for="{{ form.position.id_for_label }}" class="col-sm-5 col-form-label text-end"><strong>Должность:</strong></label>
                     <div class="col-sm-7">
                         {{ form.position }}
                     </div>
                 </div>
-
                 <div class="mb-2 row align-items-start">
                     <label for="{{ form.photo.id_for_label }}" class="col-sm-5 col-form-label text-end"><strong>Фото:</strong></label>
                     <div class="col-sm-7">
                         {{ form.photo }}
                     </div>
                 </div>
-
                 <div class="mt-3 d-flex justify-content-between">
                     <a href="{% url 'profile' %}" class="btn btn-secondary"> <i class="bi bi-arrow-left"></i> Назад</a>
                     <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Сохранить</button>

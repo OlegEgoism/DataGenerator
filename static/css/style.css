@@ -3,7 +3,6 @@
     padding-top: 1rem !important;
 }
 
-
 .info-pan {
     margin-bottom: 20px;
 }
@@ -22,9 +21,17 @@
     object-fit: cover;
     border-radius: 5px;
 }
+
 .date_info {
     font-size: 12px;
 }
+
+.tooltip-left .tooltip-inner {
+  text-align: left;
+  white-space: normal;
+}
+
+
 /*Меню страницы*/
 
 
@@ -53,6 +60,7 @@
     object-fit: cover; /* Обрезает изображение по размеру */
     border: 1px solid #fff; /* Тонкая белая рамка для видимости */
 }
+
 /*Аватар профиля*/
 
 

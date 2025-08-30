@@ -5,6 +5,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
 
+from data_generator.db_connection import get_db_connection
 from data_generator.forms import CustomUserCreationForm, CustomUserForm, DataBaseUserForm
 from data_generator.models import DataBaseUser, AppSettings
 from django.shortcuts import render, redirect, get_object_or_404
@@ -105,7 +106,7 @@ def projects(request):
 
 @login_required
 def project_create(request):
-    """Создать проект"""
+    """Создание проекта"""
     user = request.user
     if request.method == 'POST':
         form = DataBaseUserForm(request.POST)
@@ -120,24 +121,12 @@ def project_create(request):
     return render(request,
                   template_name='project_create.html',
                   context={
-                      'form': form})
+                      'form': form}
+                  )
 
 
 @login_required
-def project_delete(request, pk: int):
-    """Удаление проекта"""
-    project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
-    if request.method == "POST":
-        next_url = request.POST.get("next") or reverse("projects")
-        project_name = project.db_project
-        project.delete()
-        messages.success(request, f'Проект «{project_name}» удалён.')
-        return redirect(next_url)
-    return redirect("projects")
-
-
-@login_required
-def projects_edit(request, pk):
+def project_edit(request, pk):
     """Редактирование проекта"""
     app_settings = AppSettings.objects.first()
     connect_timeout = app_settings.connect_timeout_db if app_settings else 5
@@ -178,12 +167,17 @@ def projects_edit(request, pk):
         form = DataBaseUserForm(instance=database)
         form.fields['db_password'].initial = database.db_password
         form.fields['db_password'].widget.attrs['value'] = database.db_password
-    return render(request, 'projects_edit.html', {'form': form, 'database': database})
+    return render(request,
+                  template_name='projects_edit.html',
+                  context={
+                      'form': form,
+                      'database': database}
+                  )
 
 
 @login_required
 def project_connection(request, pk: int):
-    """Проверка доступности подключения"""
+    """Синхронизация проекта"""
     project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
     next_url = request.POST.get("next") or reverse("projects")
     if request.method != "POST":
@@ -209,9 +203,39 @@ def project_connection(request, pk: int):
 
 
 @login_required
-def database(request, pk):
-    """Информации о базе данных"""
-    database = get_object_or_404(DataBaseUser, pk=pk)
-    return render(request, template_name='database.html', context={
-        'database': database
-    })
+def project_delete(request, pk: int):
+    """Удаление проекта"""
+    project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
+    if request.method == "POST":
+        next_url = request.POST.get("next") or reverse("projects")
+        project_name = project.db_project
+        project.delete()
+        messages.success(request, f'Проект «{project_name}» удалён.')
+        return redirect(next_url)
+    return redirect("projects")
+
+
+# TODO БАЗА ДАННЫХ
+@login_required
+def database_schemas(request, pk):
+    """Схемы базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    schemas, error_message = [], None
+    connection, error_message = get_db_connection(project)
+    if connection:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT schema_name 
+                FROM information_schema.schemata 
+                WHERE schema_name NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
+                ORDER BY schema_name;
+            """)
+            schemas = [row[0] for row in cursor.fetchall()]
+        connection.close()
+    return render(request,
+                  template_name='database_schemas.html',
+                  context={
+                      'project': project,
+                      'schemas': schemas,
+                      'error_message': error_message}
+                  )

@@ -46,7 +46,7 @@ class CustomUserForm(forms.ModelForm):
 
 
 class DataBaseUserForm(forms.ModelForm):
-    """Редактирование данных проекта"""
+    """Редактирование/Создание проекта"""
 
     class Meta:
         model = DataBaseUser

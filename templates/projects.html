@@ -25,11 +25,27 @@
                                         <img class="db-image" src="{{ project.data_base_name.images_db.url }}" alt="{{ project.data_base_name.name }}">
                                         <span>{{ project.data_base_name }}</span>
                                     </div>
+                                    <a href="{% url 'database_schemas' project.pk %}" class="btn btn-success d-flex align-items-center">
+                                        <i class="bi bi-database me-1"></i> Подключиться
+                                    </a>
                                 </h5>
                                 <hr>
                                 <div class="col-md-14">
                                     <div class="d-flex flex-column gap-2">
                                         <div><strong>Проект:</strong> {{ project.db_project }}</div>
+                                        <div>
+                                            <strong>База данных:</strong>
+                                            <span class="text-decoration-dotted" data-bs-toggle="tooltip" data-bs-placement="left" data-bs-html="true" data-bs-custom-class="tooltip-left"
+                                                  data-bs-title="
+                                                                <div><strong>Пользователь:</strong> {{ project.db_user|escape }}</div>
+                                                                <div><strong>Пароль:</strong> *****</div>
+                                                                <div><strong>Хост:</strong> {{ project.db_host|escape }}</div>
+                                                                <div><strong>Порт:</strong> {{ project.db_port|escape }}</div>
+                                                                ">
+                                              {{ project.db_name }}
+                                              <i class="bi bi-hdd-network ms-1 align-middle text-muted" title="Имя базы данных" aria-hidden="true"></i>
+                                            </span>
+                                        </div>
                                         <div class="date_info"><strong>Дата создания:</strong> {{ project.created|date:"d.m.Y - H:i" }}</div>
                                         <div class="date_info"><strong>Дата изменения:</strong> {{ project.updated|date:"d.m.Y - H:i" }}</div>
                                     </div>
@@ -44,7 +60,6 @@
                                     <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ project.pk }}"><i class="bi bi-trash3"></i> Удалить
                                     </button>
                                 </div>
-                                
                                 <!-- Модальное окно удаления -->
                                 <div class="modal fade" id="deleteModal-{{ project.pk }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ project.pk }}" aria-hidden="true">
                                     <div class="modal-dialog modal-dialog-centered">
@@ -84,4 +99,5 @@
 
     <!-- Скрипт переключения пароля -->
     <script src="{% static 'js/search.js' %}"></script>
+    <script src="{% static 'js/projects_popovers.js' %}"></script>
 {% endblock %}
