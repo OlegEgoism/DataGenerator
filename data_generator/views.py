@@ -75,7 +75,7 @@ def profile_edit(request):
             messages.success(request, "Профиль успешно отредактирован.")
             return redirect('profile_edit')
         else:
-            messages.error(request, "Ошибка при редактировании профиля. Проверьте введенные данные.")
+            messages.warning(request, "Ошибка при редактировании профиля. Проверьте введенные данные.")
     else:
         form = CustomUserForm(instance=user)
     return render(request,
@@ -252,7 +252,7 @@ def database_schemas_create(request, pk):
     if request.method == "POST":
         schema_name = request.POST.get("schema_name").strip()
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", schema_name):
-            messages.error(request, "Название схемы может содержать только буквы, цифры и '_', но не начинаться с цифры.")
+            messages.warning(request, "Название схемы может содержать только буквы, цифры и '_', но не начинаться с цифры.")
             return redirect("database_schemas_create", pk=pk)
         connection, error_message = get_db_connection(project)
         if connection:
@@ -267,7 +267,7 @@ def database_schemas_create(request, pk):
                     cursor.execute(check_schema_query, (schema_name,))
                     schema_exists = cursor.fetchone()[0]
                     if schema_exists:
-                        messages.error(request, f"Схема '{schema_name}' уже существует!")
+                        messages.warning(request, f"Схема '{schema_name}' уже существует!")
                         return redirect("database_schemas_create", pk=pk)
                     create_schema_query = sql.SQL("CREATE SCHEMA {};").format(
                         sql.Identifier(schema_name)
