@@ -1,9 +1,12 @@
+import re
+
 import psycopg2
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
+from psycopg2 import sql
 
 from data_generator.db_connection import get_db_connection
 from data_generator.forms import CustomUserCreationForm, CustomUserForm, DataBaseUserForm
@@ -237,5 +240,49 @@ def database_schemas(request, pk):
                   context={
                       'project': project,
                       'schemas': schemas,
+                      'error_message': error_message}
+                  )
+
+
+@login_required
+def database_schemas_create(request, pk):
+    """Создание схемы базы данных"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    error_message = None
+    if request.method == "POST":
+        schema_name = request.POST.get("schema_name").strip()
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", schema_name):
+            messages.error(request, "Название схемы может содержать только буквы, цифры и '_', но не начинаться с цифры.")
+            return redirect("database_schemas_create", pk=pk)
+        connection, error_message = get_db_connection(project)
+        if connection:
+            try:
+                with connection.cursor() as cursor:
+                    check_schema_query = sql.SQL("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM information_schema.schemata 
+                            WHERE schema_name = %s
+                        );
+                    """)
+                    cursor.execute(check_schema_query, (schema_name,))
+                    schema_exists = cursor.fetchone()[0]
+                    if schema_exists:
+                        messages.error(request, f"Схема '{schema_name}' уже существует!")
+                        return redirect("database_schemas_create", pk=pk)
+                    create_schema_query = sql.SQL("CREATE SCHEMA {};").format(
+                        sql.Identifier(schema_name)
+                    )
+                    cursor.execute(create_schema_query)
+                    connection.commit()
+                messages.success(request, f"Схема '{schema_name}' успешно создана!")
+                return redirect("database_schemas", pk=pk)
+            except Exception as e:
+                error_message = f"Ошибка создания схемы: {str(e)}"
+            finally:
+                connection.close()
+    return render(request,
+                  template_name="database_schemas_create.html",
+                  context={
+                      'project': project,
                       'error_message': error_message}
                   )

@@ -15,7 +15,7 @@ from data_generator.views import (
     project_create,
     project_edit,
     project_connection,
-    project_delete, database_schemas
+    project_delete, database_schemas, database_schemas_create
 
 )
 
@@ -37,6 +37,8 @@ urlpatterns = [
     path("project_delete/<int:pk>/", project_delete, name="project_delete"),
 
     path('database_schemas/<int:pk>/', database_schemas, name='database_schemas'),
+
+    path('database_schemas_create/<int:pk>/', database_schemas_create, name='database_schemas_create'),
 
 
 ]
