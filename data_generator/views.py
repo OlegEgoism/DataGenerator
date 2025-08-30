@@ -2,7 +2,7 @@ import re
 
 import psycopg2
 from django.contrib.auth import logout
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q
 from django.urls import reverse
 from psycopg2 import sql
@@ -526,6 +526,7 @@ def database_schemas_tables_create(request, pk, schema_name):
                       "error_message": error_message}
                   )
 
+
 # TODO КОЛОНКИ
 @login_required
 def database_schemas_tables_columns(request, pk, schema_name, table_name):
@@ -533,11 +534,9 @@ def database_schemas_tables_columns(request, pk, schema_name, table_name):
     project = get_object_or_404(DataBaseUser, pk=pk)
     columns, record_count, error_message = [], 0, None
     connection, error_message = get_db_connection(project)
-
     if connection:
         try:
             with connection.cursor() as cursor:
-                # Проверяем, существует ли таблица
                 check_table_query = sql.SQL("""
                     SELECT EXISTS (
                         SELECT 1 FROM information_schema.tables 
@@ -546,10 +545,9 @@ def database_schemas_tables_columns(request, pk, schema_name, table_name):
                 """)
                 cursor.execute(check_table_query, (schema_name, table_name))
                 table_exists = cursor.fetchone()[0]
-
                 if not table_exists:
                     error_message = f"Ошибка: Таблица '{table_name}' в схеме '{schema_name}' не существует!"
-                    return render(request, "table_columns.html", {
+                    return render(request, "database_schemas_tables_columns.html", {
                         "project": project,
                         "schema_name": schema_name,
                         "table_name": table_name,
@@ -557,8 +555,6 @@ def database_schemas_tables_columns(request, pk, schema_name, table_name):
                         "record_count": 0,
                         "error_message": error_message
                     })
-
-                # Получаем список колонок таблицы
                 query = sql.SQL("""
                     SELECT column_name, data_type
                     FROM information_schema.columns
@@ -567,25 +563,92 @@ def database_schemas_tables_columns(request, pk, schema_name, table_name):
                 """)
                 cursor.execute(query, (schema_name, table_name))
                 columns = cursor.fetchall()
-
-                # Получаем количество записей
                 count_query = sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
                     sql.Identifier(schema_name),
                     sql.Identifier(table_name)
                 )
                 cursor.execute(count_query)
                 record_count = cursor.fetchone()[0]
-
         except Exception as e:
             error_message = f"Ошибка: {str(e)}"
         finally:
             connection.close()
+    return render(request,
+                  template_name="database_schemas_tables_columns.html",
+                  context={
+                      "project": project,
+                      "schema_name": schema_name,
+                      "table_name": table_name,
+                      "columns": columns,
+                      "record_count": record_count,
+                      "error_message": error_message}
+                  )
 
-    return render(request, "database_schemas_tables_columns.html", {
-        "project": project,
-        "schema_name": schema_name,
-        "table_name": table_name,
-        "columns": columns,
-        "record_count": record_count,
-        "error_message": error_message
+@login_required
+def view_table_data(request, pk, schema_name, table_name):
+    """Просмотр данных из таблицы с подгрузкой текущей страницы и поиском"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    connection, error_message = get_db_connection(project)
+    view_table_db = AppSettings.objects.first()
+    if error_message:
+        return render(request, 'error_page.html', {'error_message': error_message})
+
+    cursor = connection.cursor()
+
+    # Получаем список колонок
+    cursor.execute(f"""
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = %s AND table_name = %s;
+    """, (schema_name, table_name))
+    columns = [col[0] for col in cursor.fetchall()]
+
+    # Получаем общее количество записей
+    cursor.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
+    record_count = cursor.fetchone()[0]
+
+    # Параметры пагинации
+    page_size = view_table_db.view_table_db if view_table_db else 50
+    page_number = request.GET.get('page', 1)
+
+    try:
+        page_number = int(page_number)
+    except ValueError:
+        page_number = 1
+
+    offset = (page_number - 1) * page_size  # Вычисляем OFFSET
+
+    # Обрабатываем поисковый запрос
+    search_query = request.GET.get('search', '').strip()
+    query_params = []
+
+    if search_query:
+        search_conditions = " OR ".join([f'"{col}"::text ILIKE %s' for col in columns])
+        sql_query = f'SELECT * FROM "{schema_name}"."{table_name}" WHERE {search_conditions} LIMIT {page_size} OFFSET {offset};'
+        query_params = [f"%{search_query}%"] * len(columns)
+    else:
+        sql_query = f'SELECT * FROM "{schema_name}"."{table_name}" LIMIT {page_size} OFFSET {offset};'
+
+    cursor.execute(sql_query, query_params)
+    rows = cursor.fetchall()
+    cursor.close()
+    connection.close()
+
+    # Создаём объект пагинации
+    paginator = Paginator(range(record_count), page_size)
+
+    try:
+        page_obj = paginator.page(page_number)
+    except (EmptyPage, PageNotAnInteger):
+        page_obj = paginator.page(1)
+
+    return render(request, template_name='view_table_data.html', context={
+        'project': project,
+        'schema_name': schema_name,
+        'table_name': table_name,
+        'columns': columns,
+        'page_obj': page_obj,  # Пагинация
+        'rows': rows,  # Только текущие данные
+        'record_count': record_count,
+        'records_on_page': len(rows),
+        'search_query': search_query,  # Передаём в шаблон
     })
