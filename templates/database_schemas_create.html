@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Создание схемы{% endblock %}
+
+{% block content %}
+    <h2 class="text-center mb-4">Создание схемы</h2>
+    <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3 row align-items-center">
+                    <label for="schema_name" class="col-sm-4 col-form-label"><strong>Название схемы:</strong></label>
+                    <div class="col-sm-8">
+                        <input type="text" class="form-control" id="schema_name" name="schema_name" required>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-3">
+                    <a href="{% url 'database_schemas' project.pk %}" class="btn btn-secondary"> <i class="bi bi-arrow-left"></i> Назад</a>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-plus-lg"></i> Создать схему</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
