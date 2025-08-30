@@ -3,9 +3,9 @@
 {% block title %}Мои проекты{% endblock %}
 
 {% block content %}
-    <h1 class="text-center mb-4"> Проекты</h1>
+    <h1 class="text-center mb-2"> Проекты</h1>
     <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
-        <form method="get" class="mb-3 d-flex gap-2 position-relative">
+        <form method="get" class="mb-2 d-flex gap-2 position-relative">
             <input type="text" name="search" id="searchInput" class="form-control" placeholder="Поиск по названию проекта" value="{{ request.GET.search }}">
             <button type="button" id="clearSearch" class="btn btn-outline-secondary"><i class="bi bi-x-circle"></i></button>
             <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
@@ -13,7 +13,7 @@
         {% if projects %}
             <div class="row">
                 {% for project in projects %}
-                    <div class="col-md-6 mb-4">
+                    <div class="col-md-6 mb-2">
                         <div class="card shadow-lg border-6">
                             <div class="card-body position-relative">
                                 <h5 class="card-title d-flex justify-content-between align-items-center">

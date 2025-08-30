@@ -65,10 +65,10 @@ def profile_edit(request):
         form = CustomUserForm(request.POST, request.FILES, instance=user)
         if form.is_valid():
             form.save()
-            messages.success(request, "Профиль успешно обновлен.")
-            return redirect('profile')
+            messages.success(request, "Профиль успешно отредактирован.")
+            return redirect('profile_edit')
         else:
-            messages.error(request, "Ошибка при обновлении профиля. Проверьте введенные данные.")
+            messages.error(request, "Ошибка при редактировании профиля. Проверьте введенные данные.")
     else:
         form = CustomUserForm(instance=user)
     return render(request,
@@ -116,41 +116,44 @@ def projects_edit(request, pk):
     """Редактирование проекта"""
     app_settings = AppSettings.objects.first()
     connect_timeout = app_settings.connect_timeout_db if app_settings else 5
-    database = get_object_or_404(DataBaseUser, pk=pk)
+    database = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
     if request.method == 'POST':
         form = DataBaseUserForm(request.POST, instance=database)
         if form.is_valid():
-            database = form.save(commit=False)
-            if not form.cleaned_data['db_password']:
-                database.db_password = DataBaseUser.objects.get(pk=pk).db_password
-            database.save()
+            old_password = DataBaseUser.objects.get(pk=pk).db_password
+            db_obj = form.save(commit=False)
+            if not form.cleaned_data.get('db_password'):
+                db_obj.db_password = old_password
+            db_obj.save()
             if 'check_connection' in request.POST:
                 try:
                     connection = psycopg2.connect(
-                        dbname=database.db_name,
-                        user=database.db_user,
-                        password=database.db_password,
-                        host=database.db_host,
-                        port=database.db_port,
-                        connect_timeout=connect_timeout
+                        dbname=db_obj.db_name,
+                        user=db_obj.db_user,
+                        password=db_obj.db_password,
+                        host=db_obj.db_host,
+                        port=db_obj.db_port,
+                        connect_timeout=connect_timeout,
                     )
-                    messages.success(request, f"Успешное подключение к базе данных '{database.db_name}'.", extra_tags="alert alert-success")
                     connection.close()
+                    messages.success(request, f"Успешное подключение к базе данных '{db_obj.db_name}'.")
                 except psycopg2.OperationalError:
-                    messages.error(request, "Ошибка подключения! Проверьте настройки подключения.", extra_tags="alert alert-danger")
+                    messages.warning(request, "Ошибка подключения! Проверьте настройки подключения.")
                 except Exception as e:
-                    messages.error(request, f"Ошибка подключения: {str(e)}", extra_tags="alert alert-danger")
-            else:
-                messages.success(request, "Данные успешно сохранены.", extra_tags="alert alert-success")
+                    messages.warning(request, f"Ошибка подключения: {str(e)}")
+                form = DataBaseUserForm(instance=db_obj)
+                form.fields['db_password'].initial = db_obj.db_password
+                form.fields['db_password'].widget.attrs['value'] = db_obj.db_password
+                return render(request, 'projects_edit.html', {'form': form, 'database': db_obj})
+            messages.success(request, "Данные успешно сохранены.")
+            return redirect(reverse('projects_edit', args=[db_obj.pk]))
         else:
-            messages.error(request, message="")
+            messages.warning(request, "Исправьте ошибки в форме.")
     else:
         form = DataBaseUserForm(instance=database)
+        form.fields['db_password'].initial = database.db_password
         form.fields['db_password'].widget.attrs['value'] = database.db_password
-    return render(request, template_name='projects_edit.html', context={
-        'form': form,
-        'database': database
-    })
+    return render(request, 'projects_edit.html', {'form': form, 'database': database})
 
 
 @login_required

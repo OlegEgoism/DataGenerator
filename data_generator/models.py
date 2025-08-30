@@ -40,8 +40,8 @@ class CustomUser(AbstractUser, DateStamp):
 
 
 class DataBaseName(DateStamp):
-    """Список баз данных"""
-    name = models.CharField(verbose_name="Название базы данных", max_length=100, unique=True)
+    """Подключение"""
+    name = models.CharField(verbose_name="Подключение", max_length=100, unique=True)
     images_db = models.ImageField(verbose_name="Изображение", upload_to='images_db/', default='images_db/default.jpg', blank=True, null=True)
 
     def save(self, *args, **kwargs):
@@ -61,21 +61,21 @@ class DataBaseName(DateStamp):
         return self.name
 
     class Meta:
-        verbose_name = "Список баз данных"
-        verbose_name_plural = "Списки баз данных"
+        verbose_name = "Подключение"
+        verbose_name_plural = "Подключение"
         ordering = 'name',
 
 
 class DataBaseUser(DateStamp):
     """Проекты"""
-    db_project = models.CharField(verbose_name="Название подключения", max_length=200, unique=True)
-    db_name = models.CharField(verbose_name="БД Название", max_length=255)
-    db_user = models.CharField(verbose_name="БД Пользователь", max_length=255)
-    db_password = models.CharField(verbose_name="БД Пароль", max_length=255)
-    db_host = models.CharField(verbose_name="БД Хост", max_length=255)
-    db_port = models.CharField(verbose_name="БД Порт", max_length=8)
+    db_project = models.CharField(verbose_name="Проект", max_length=40, unique=True)
+    db_name = models.CharField(verbose_name="Название базы данных", max_length=40)
+    db_user = models.CharField(verbose_name="Пользователь", max_length=40)
+    db_password = models.CharField(verbose_name="Пароль", max_length=40)
+    db_host = models.CharField(verbose_name="Хост", max_length=255)
+    db_port = models.CharField(verbose_name="Порт", max_length=8)
     user = models.ForeignKey(CustomUser, verbose_name="Пользователь", on_delete=models.CASCADE, related_name='data_base_user')
-    data_base_name = models.ForeignKey(DataBaseName, verbose_name="База данных", on_delete=models.CASCADE, related_name='data_base_name')
+    data_base_name = models.ForeignKey(DataBaseName, verbose_name="Подключение", on_delete=models.CASCADE, related_name='data_base_name')
 
     def __str__(self):
         return f"Данные БД пользователя: {self.user.username}"

@@ -4,7 +4,7 @@
 {% block title %}Редактирование проекта: {{ database.db_project }}{% endblock %}
 
 {% block content %}
-    <h1 class="text-center mb-4">Редактирование проекта: {{ database.db_project }}</h1>
+    <h1 class="text-center mb-2">Редактирование проекта: {{ database.db_project }}</h1>
     <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
         <div class="card-body">
             <form method="post" class="needs-validation" novalidate>
@@ -14,16 +14,16 @@
                         <strong>Пожалуйста, исправьте ошибки в форме.</strong>
                     </div>
                 {% endif %}
-                <div class="row mb-3">
-                    <label for="id_data_base_name" class="col-sm-4 col-form-label text-end"><strong>Подключение:</strong></label>
-                    <div class="col-sm-8">
-                        {{ form.data_base_name }}
-                        {% if form.data_base_name.errors %}
-                            <div class="text-danger">{{ form.data_base_name.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="row mb-3">
+<div class="row mb-2">
+  <label for="id_data_base_name" class="col-sm-4 col-form-label text-end"><strong>Подключение:</strong></label>
+  <div class="col-sm-8">
+    {{ form.data_base_name }}
+    {% if form.data_base_name.errors %}
+      <div class="text-danger">{{ form.data_base_name.errors }}</div>
+    {% endif %}
+  </div>
+</div>
+                <div class="row mb-2">
                     <label for="id_db_project" class="col-sm-4 col-form-label text-end"><strong>Проект:</strong></label>
                     <div class="col-sm-8">
                         {{ form.db_project }}
@@ -32,7 +32,7 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="row mb-3">
+                <div class="row mb-2">
                     <label for="id_db_name" class="col-sm-4 col-form-label text-end"><strong>Название базы данных:</strong></label>
                     <div class="col-sm-8">
                         {{ form.db_name }}
@@ -41,7 +41,7 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="row mb-3">
+                <div class="row mb-2">
                     <label for="id_db_user" class="col-sm-4 col-form-label text-end"><strong>Пользователь:</strong></label>
                     <div class="col-sm-8">
                         {{ form.db_user }}
@@ -50,16 +50,21 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="row mb-3">
-                    <label for="id_db_password" class="col-sm-4 col-form-label text-end"><strong>Пароль:</strong></label>
+                <div class="row mb-2">
+                    <label for="id_db_password" class="col-sm-4 col-form-label text-end">
+                        <strong>Пароль:</strong>
+                    </label>
                     <div class="col-sm-8">
-                        {{ form.db_password }}
+                        <div class="input-group">
+                            {{ form.db_password }}
+                            <button type="button" class="btn btn-outline-secondary" id="togglePassword" tabindex="-1" aria-label="Показать/скрыть пароль"><i class="bi bi-eye"></i></button>
+                        </div>
                         {% if form.db_password.errors %}
                             <div class="text-danger">{{ form.db_password.errors }}</div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="row mb-3">
+                <div class="row mb-2">
                     <label for="id_db_host" class="col-sm-4 col-form-label text-end"><strong>Хост:</strong></label>
                     <div class="col-sm-8">
                         {{ form.db_host }}
@@ -68,7 +73,7 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="row mb-3">
+                <div class="row mb-2">
                     <label for="id_db_port" class="col-sm-4 col-form-label text-end"><strong>Порт:</strong></label>
                     <div class="col-sm-8">
                         {{ form.db_port }}
@@ -78,20 +83,32 @@
                     </div>
                 </div>
 
-                            <div class="mt-3 d-flex justify-content-between">
+                <div class="mt-3 d-flex justify-content-between">
                     <a href="{% url 'projects' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Назад</a>
                     <button type="submit" name="check_connection" value="true" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Синхронизация</button>
-                    <a href="#" class="btn btn-success"><i class="bi bi-database"></i>П одключиться</a>
+                    <a href="#" class="btn btn-success"><i class="bi bi-database"></i> Подключиться</a>
                     <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Сохранить</button>
                 </div>
 
-
-
-
-                <div class="d-flex justify-content-evenly align-items-center mt-3 flex-wrap">
-
-                </div>
             </form>
         </div>
     </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const btn = document.getElementById('togglePassword');
+            const input = document.getElementById('id_db_password');
+
+            if (btn && input) {
+                btn.addEventListener('click', function () {
+                    const isPwd = input.getAttribute('type') === 'password';
+                    input.setAttribute('type', isPwd ? 'text' : 'password');
+                    btn.innerHTML = isPwd ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+                });
+            }
+        });
+    </script>
+
+
 {% endblock %}
