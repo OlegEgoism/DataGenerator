@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // Функция для инициализации переключения видимости пароля
     function setupPasswordToggle(toggleId, passwordId) {
         const toggleButton = document.querySelector(`#${toggleId}`);
         const passwordField = document.querySelector(`#${passwordId}`);
@@ -24,8 +23,13 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Инициализация для всех полей
-    setupPasswordToggle("togglePassword", "id_password");   // Вход
-    setupPasswordToggle("togglePassword1", "id_password1"); // Регистрация — Пароль
-    setupPasswordToggle("togglePassword2", "id_password2"); // Регистрация — Подтверждение
+// Вход
+    setupPasswordToggle("togglePassword", "id_password");
+// Регистрация
+    setupPasswordToggle("togglePassword1", "id_password1");
+    setupPasswordToggle("togglePassword2", "id_password2");
+// Создание проекта
+    setupPasswordToggle("toggleDbPassword", "id_db_password");
+// Редактирование проекта
+    setupPasswordToggle("toggleDbPasswordEdit", "id_db_password");
 });

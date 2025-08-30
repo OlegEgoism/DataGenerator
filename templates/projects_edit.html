@@ -13,15 +13,15 @@
                         <strong>Пожалуйста, исправьте ошибки в форме.</strong>
                     </div>
                 {% endif %}
-<div class="row mb-2">
-  <label for="id_data_base_name" class="col-sm-4 col-form-label text-end"><strong>Подключение:</strong></label>
-  <div class="col-sm-8">
-    {{ form.data_base_name }}
-    {% if form.data_base_name.errors %}
-      <div class="text-danger">{{ form.data_base_name.errors }}</div>
-    {% endif %}
-  </div>
-</div>
+                <div class="row mb-2">
+                    <label for="id_data_base_name" class="col-sm-4 col-form-label text-end"><strong>Подключение:</strong></label>
+                    <div class="col-sm-8">
+                        {{ form.data_base_name }}
+                        {% if form.data_base_name.errors %}
+                            <div class="text-danger">{{ form.data_base_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
                 <div class="row mb-2">
                     <label for="id_db_project" class="col-sm-4 col-form-label text-end"><strong>Проект:</strong></label>
                     <div class="col-sm-8">
@@ -50,19 +50,18 @@
                     </div>
                 </div>
                 <div class="row mb-2">
-                    <label for="id_db_password" class="col-sm-4 col-form-label text-end">
-                        <strong>Пароль:</strong>
-                    </label>
+                    <label for="id_db_password" class="col-sm-4 col-form-label text-end"><strong>Пароль:</strong> </label>
                     <div class="col-sm-8">
                         <div class="input-group">
                             {{ form.db_password }}
-                            <button type="button" class="btn btn-outline-secondary" id="togglePassword" tabindex="-1" aria-label="Показать/скрыть пароль"><i class="bi bi-eye"></i></button>
+                            <button type="button" class="btn btn-outline-secondary" id="toggleDbPasswordEdit" tabindex="-1" aria-label="Показать/скрыть пароль"><i class="bi bi-eye"></i></button>
                         </div>
                         {% if form.db_password.errors %}
                             <div class="text-danger">{{ form.db_password.errors }}</div>
                         {% endif %}
                     </div>
                 </div>
+
                 <div class="row mb-2">
                     <label for="id_db_host" class="col-sm-4 col-form-label text-end"><strong>Хост:</strong></label>
                     <div class="col-sm-8">
@@ -81,18 +80,17 @@
                         {% endif %}
                     </div>
                 </div>
-
                 <div class="mt-3 d-flex justify-content-between">
                     <a href="{% url 'projects' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Назад</a>
                     <button type="submit" name="check_connection" value="true" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Синхронизация</button>
                     <a href="#" class="btn btn-success"><i class="bi bi-database"></i> Подключиться</a>
                     <button type="submit" class="btn btn-success"><i class="bi bi-save"></i> Сохранить</button>
                 </div>
-
             </form>
         </div>
     </div>
 
-
-
+    <!-- Скрипт переключения пароля -->
+    <script src="{% static 'js/password.js' %}"></script>
 {% endblock %}
+
