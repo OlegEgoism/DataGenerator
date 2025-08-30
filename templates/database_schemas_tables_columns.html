@@ -1,75 +1,91 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Колонки таблицы {{ table_name }}{% endblock %}
+{% block title %}Колонки таблицы {{ schema_name }}.{{ table_name }}{% endblock %}
 
 {% block content %}
-    <h2 class="text-center mb-4">Колонки таблицы: {{ table_name }}</h2>
+
+    {% if error_message %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
+        </div>
+    {% endif %}
+
+    <h2 class="text-center mb-4">Таблица: {{ table_name }}</h2>
+
     <div class="card shadow-lg border-0 mx-auto panel-input">
         <div class="card-body text-top">
+            <!-- Шапка в стиле database_schemas_tables.html -->
+            <h5 class="card-title d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <img class="db-image" src="{{ project.data_base_name.images_db.url }}" alt="{{ project.data_base_name.name }}">
+                    <span>{{ project.data_base_name }}</span>
+                </div>
+            </h5>
+            <hr>
+
             <h5><strong>Проект:</strong> {{ project.db_project }}</h5>
             <h5><strong>База данных:</strong> {{ project.db_name }}</h5>
             <h5><strong>Схема:</strong> {{ schema_name }}</h5>
-            <h5><strong>Количество записей в таблице:</strong> {{ record_count }} шт.</h5>
-            <hr>
+            <h5><strong>Количество записей:</strong> {{ record_count }} шт.</h5>
+            <h5><strong>Колонки:</strong></h5>
+
             {% if error_message %}
                 <div class="alert alert-danger">
                     <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
                 </div>
             {% else %}
-                <h5>Доступные колонки таблицы:</h5>
                 {% if columns %}
-                    <table class="table table-striped">
-                        <thead>
-                        <tr>
-                            <th>Название</th>
-                            <th>Тип</th>
-                            <th>Комментарий</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {% for column in columns %}
-                            <tr>
-                                <td>{{ column.0 }}</td>
-                                <td>{{ column.1 }}</td>
-                                <td>{{ column.2 }}</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="width: 72px;">#</th>
+                                    <th>Название</th>
+                                    <th>Тип</th>
+                                    <th>Комментарий</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for column in columns %}
+                                    <tr>
+                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ column.0 }}</td>
+                                        <td>{{ column.1 }}</td>
+                                        <td>
+                                            {% if column.2 %}
+                                                {{ column.2 }}
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 {% else %}
-                    <p class="text-muted">В данной таблице колонок не найдено.</p>
+                    <div class="alert alert-warning text-center">
+                        Колонки не найдены.
+                    </div>
                 {% endif %}
             {% endif %}
 
-        
-        <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap">
-    <!-- Кнопка "Назад" -->
-{#    <a href="{% url 'schema_tables' project.pk schema_name %}" class="btn btn-secondary">#}
-        <i class="bi bi-arrow-left"></i> Назад
-{#    </a>#}
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                <!-- Назад -->
+                <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Назад
+                </a>
 
-    <!-- Форма очистки таблицы -->
-    <form method="post" onsubmit="return confirm('Вы уверены, что хотите удалить все данные из таблицы?');">
-        {% csrf_token %}
-        <button type="submit" name="clear_table" class="btn btn-danger">
-            <i class="bi bi-trash"></i> Очистить таблицу
-        </button>
-    </form>
-
-    <!-- Кнопка удаления таблицы -->
-{#    <a href="{% url 'delete_table' project.pk schema_name table_name %}" class="btn btn-danger"#}
-{#       onclick="return confirm('Вы уверены, что хотите удалить таблицу {{ table_name }}? Это действие нельзя отменить!');">#}
-{#        <i class="bi bi-x-circle"></i> Удалить таблицу#}
-{#    </a>#}
-
-    <!-- Кнопка "Перейти в таблицу" -->
-{#    <a href="{% url 'generate_fake_data' project.pk schema_name table_name %}" class="btn btn-success">#}
-{#        <i class="bi bi-database-add"></i> Перейти в таблицу#}
-{#    </a>#}
-</div>
-
-        
-
+                <!-- Очистить таблицу -->
+                <form method="post" onsubmit="return confirm('Вы уверены, что хотите удалить все данные из таблицы?');">
+                    {% csrf_token %}
+                    <button type="submit" name="clear_table" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Очистить таблицу
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
+
 {% endblock %}
