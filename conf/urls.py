@@ -14,6 +14,7 @@ from data_generator.views import (
     projects,
     project_create,
     projects_edit,
+    project_connection,
     project_delete,
 
     database
@@ -22,6 +23,7 @@ from data_generator.views import (
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', home, name='home'),
+
     path('register/', register, name='register'),
     path('login/', auth_views.LoginView.as_view(), name='login'),
     path('logout/', logout_view, name='logout'),
@@ -31,9 +33,9 @@ urlpatterns = [
 
     path("projects/", projects, name="projects"),
     path('project_create/', project_create, name='project_create'),
+    path('project_edit/<int:pk>/', projects_edit, name='projects_edit'),
+    path('project_connection/<int:pk>/', project_connection, name='project_connection'),
     path("project_delete/<int:pk>/", project_delete, name="project_delete"),
-    path('projects_edit/<int:pk>/', projects_edit, name='projects_edit'),
-
 
     path('database/<int:pk>/', database, name='database'),
 

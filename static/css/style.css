@@ -1,14 +1,19 @@
 /*Меню страницы*/
+.py-5 {
+    padding-top: 1rem !important;
+}
+
+
 .info-pan {
     margin-bottom: 20px;
 }
 
 .panel-input {
-    max-width: 700px
+    max-width: 740px
 }
 
 .panel-projects {
-    max-width: 1000px
+    max-width: 1040px
 }
 
 .db-image {

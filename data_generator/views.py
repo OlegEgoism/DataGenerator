@@ -182,17 +182,36 @@ def projects_edit(request, pk):
 
 
 @login_required
+def project_connection(request, pk: int):
+    """Проверка доступности подключения"""
+    project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
+    next_url = request.POST.get("next") or reverse("projects")
+    if request.method != "POST":
+        return redirect(next_url)
+    app_settings = AppSettings.objects.first()
+    connect_timeout = app_settings.connect_timeout_db if app_settings else 5
+    try:
+        conn = psycopg2.connect(
+            dbname=project.db_name,
+            user=project.db_user,
+            password=project.db_password,
+            host=project.db_host,
+            port=project.db_port,
+            connect_timeout=connect_timeout,
+        )
+        conn.close()
+        messages.success(request, f"Успешное подключение к базе данных «{project.db_name}».")
+    except psycopg2.OperationalError:
+        messages.warning(request, "Ошибка подключения! Проверьте настройки подключения.")
+    except Exception as e:
+        messages.warning(request, f"Ошибка подключения: {str(e)}")
+    return redirect(next_url)
+
+
+@login_required
 def database(request, pk):
     """Информации о базе данных"""
     database = get_object_or_404(DataBaseUser, pk=pk)
     return render(request, template_name='database.html', context={
         'database': database
     })
-
-# @login_required
-# def database_delete(request, pk):
-#     """Удаление проекта базы данных"""
-#     database = get_object_or_404(DataBaseUser, pk=pk)
-#     database.delete()
-#     messages.success(request, 'Проект успешно удален.')
-#     return redirect('projects')
