@@ -57,8 +57,7 @@
                                         <button type="submit" class="btn btn-info"><i class="bi bi-arrow-repeat"></i> Синхронизация</button>
                                     </form>
                                     <a href="{% url 'projects_edit' project.pk %}" class="btn btn-success"> <i class="bi bi-pencil-square"></i> Редактировать </a>
-                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ project.pk }}"><i class="bi bi-trash3"></i> Удалить
-                                    </button>
+                                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ project.pk }}"><i class="bi bi-trash3"></i> Удалить</button>
                                 </div>
                                 <!-- Модальное окно удаления -->
                                 <div class="modal fade" id="deleteModal-{{ project.pk }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ project.pk }}" aria-hidden="true">

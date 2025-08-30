@@ -219,29 +219,6 @@ def project_delete(request, pk: int):
 
 
 # TODO БАЗА ДАННЫХ
-# @login_required
-# def database_schemas(request, pk):
-#     """Схемы базы данных"""
-#     project = get_object_or_404(DataBaseUser, pk=pk)
-#     schemas, error_message = [], None
-#     connection, error_message = get_db_connection(project)
-#     if connection:
-#         with connection.cursor() as cursor:
-#             cursor.execute("""
-#                 SELECT schema_name
-#                 FROM information_schema.schemata
-#                 WHERE schema_name NOT IN ('pg_toast', 'pg_catalog', 'information_schema')
-#                 ORDER BY schema_name;
-#             """)
-#             schemas = [row[0] for row in cursor.fetchall()]
-#         connection.close()
-#     return render(request,
-#                   template_name='database_schemas.html',
-#                   context={
-#                       'project': project,
-#                       'schemas': schemas,
-#                       'error_message': error_message}
-#                   )
 @login_required
 def database_schemas(request, pk):
     """Схемы базы данных"""
@@ -324,6 +301,80 @@ def database_schemas_create(request, pk):
                       'project': project,
                       'error_message': error_message}
                   )
+
+
+@login_required
+def database_schema_delete(request, pk, schema_name: str):
+    """Удаление схемы (CASCADE). Только POST."""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    next_url = request.POST.get("next") or reverse("database_schemas", args=[pk])
+    if request.method != "POST":
+        return redirect(next_url)
+    connection, error_message = get_db_connection(project)
+    if not connection:
+        messages.warning(request, error_message or "Ошибка подключения к БД.")
+        return redirect(next_url)
+    try:
+        with connection.cursor() as cursor:
+            drop_stmt = sql.SQL("DROP SCHEMA {} CASCADE;").format(sql.Identifier(schema_name))
+            cursor.execute(drop_stmt)
+        connection.commit()
+        messages.success(request, f"Схема «{schema_name}» успешно удалена.")
+    except Exception as e:
+        connection.rollback()
+        messages.warning(request, f"Ошибка удаления схемы «{schema_name}»: {str(e)}")
+    finally:
+        connection.close()
+    return redirect(next_url)
+
+
+@login_required
+def database_schema_edit(request, pk, schema_name: str):
+    """Переименование схемы. Только POST."""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    next_url = request.POST.get("next") or reverse("database_schemas", args=[pk])
+    if request.method != "POST":
+        return redirect(next_url)
+    new_name = (request.POST.get("new_schema_name") or "").strip()
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", new_name):
+        messages.warning(request, "Недопустимое имя схемы. Разрешены латинские буквы, цифры и «_», первый символ — буква или «_».")
+        return redirect(next_url)
+    if new_name == schema_name:
+        messages.info(request, "Имя схемы не изменилось.")
+        return redirect(next_url)
+    connection, error_message = get_db_connection(project)
+    if not connection:
+        messages.warning(request, error_message or "Ошибка подключения к БД.")
+        return redirect(next_url)
+    try:
+        with connection.cursor() as cursor:
+            # проверим, что новой схемы не существует
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.schemata WHERE schema_name = %s
+                );
+            """, (new_name,))
+            exists = cursor.fetchone()[0]
+            if exists:
+                messages.warning(request, f"Схема «{new_name}» уже существует.")
+                return redirect(next_url)
+            alter_stmt = sql.SQL("ALTER SCHEMA {} RENAME TO {};").format(
+                sql.Identifier(schema_name),
+                sql.Identifier(new_name)
+            )
+            cursor.execute(alter_stmt)
+        connection.commit()
+        messages.success(request, f"Схема «{schema_name}» переименована в «{new_name}».")
+    except Exception as e:
+        connection.rollback()
+        messages.warning(request, f"Ошибка переименования схемы: {str(e)}")
+    finally:
+        connection.close()
+
+    return redirect(next_url)
+
+
+
 
 
 @login_required
