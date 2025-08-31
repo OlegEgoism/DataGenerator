@@ -86,9 +86,10 @@
                                  aria-labelledby="renameTableLabel-{{ forloop.counter }}" aria-hidden="true">
                                 <div class="modal-dialog">
                                     <div class="modal-content">
-                                        <div class="modal-header">
+                                        <div class="modal-header border-0 pb-0">
+
                                             <h5 class="modal-title" id="renameTableLabel-{{ forloop.counter }}">
-                                                Переименовать таблицу
+                                                Переименовать таблицу: {{ table }}
                                             </h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal"
                                                     aria-label="Закрыть"></button>
@@ -96,31 +97,17 @@
                                         <form method="post"
                                               action="{% url 'database_schemas_tables_edit' project.pk schema_name table %}">
                                             {% csrf_token %}
-                                            <div class="modal-body">
-                                                <div class="mb-2">
-                                                    <label class="form-label"><strong>Текущее имя:</strong></label>
-                                                    <div class="form-control-plaintext">{{ table }}</div>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label for="newTableName-{{ forloop.counter }}" class="form-label">
-                                                        Новое имя таблицы
-                                                    </label>
-                                                    <input type="text"
-                                                           class="form-control"
-                                                           id="newTableName-{{ forloop.counter }}"
-                                                           name="new_table_name"
-                                                           value="{{ table }}"
-                                                           required
-                                                           pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
-                                                           maxlength="63"
-                                                           placeholder="например, events_v2">
-                                                    <div class="form-text">
-                                                        Допустимы латинские буквы, цифры и «_», первый символ — буква или «_».
+                                            <div class="modal-body ">
+                                                <div class="row mb-2 align-items-center">
+                                                    <label for="newTableName-{{ forloop.counter }}" class="col-sm-4 col-form-label text-end"> <strong>Новое имя:</strong> </label>
+                                                    <div class="col-sm-8">
+                                                        <input type="text" class="form-control" id="newTableName-{{ forloop.counter }}" name="new_table_name" value="{{ table }}" required pattern="^[a-zA-Z_][a-zA-Z0-9_]*$" maxlength="63" placeholder="">
                                                     </div>
                                                 </div>
                                                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             </div>
-                                            <div class="modal-footer">
+                                            <div class="modal-footer border-0 pt-0">
+
                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                                                 <button type="submit" class="btn btn-primary">
                                                     <i class="bi bi-check2"></i> Переименовать
@@ -136,7 +123,8 @@
                                  aria-labelledby="deleteTableLabel-{{ forloop.counter }}" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered">
                                     <div class="modal-content">
-                                        <div class="modal-header">
+                                        <div class="modal-header border-0 pb-0">
+
                                             <h5 class="modal-title" id="deleteTableLabel-{{ forloop.counter }}">
                                                 Удалить таблицу?
                                             </h5>
@@ -149,7 +137,8 @@
                                             <br>
                                             Это действие <strong>необратимо</strong>.
                                         </div>
-                                        <div class="modal-footer">
+                                        <div class="modal-footer border-0 pt-0">
+
                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                                             <form method="post"
                                                   action="{% url 'database_schemas_tables_delete' project.pk schema_name table %}">
@@ -184,9 +173,9 @@
 
                 {% if not error_message %}
                     {# Добавите маршрут создания таблицы позже при необходимости #}
-                     <a href="{% url 'database_schemas_tables_create' project.pk schema_name %}" class="btn btn-success">
-                         <i class="bi bi-plus-lg"></i> Создать таблицу
-                       </a> 
+                    <a href="{% url 'database_schemas_tables_create' project.pk schema_name %}" class="btn btn-success">
+                        <i class="bi bi-plus-lg"></i> Создать таблицу
+                    </a>
                 {% endif %}
             </div>
         </div>

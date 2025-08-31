@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}Ошибка{% endblock %}
+
+{% block content %}
+    <div class="container text-center mt-5">
+        <div class="card shadow-lg border-0 mx-auto p-4 panel-input">
+            <h2 class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> Ошибка</h2>
+            <hr>
+            <p class="text-muted">{{ error_message }}</p>
+            <a href="{% url 'home' %}" class="btn btn-secondary mt-3">
+                <i class="bi bi-arrow-left"></i> На главную
+            </a>
+        </div>
+    </div>
+{% endblock %}

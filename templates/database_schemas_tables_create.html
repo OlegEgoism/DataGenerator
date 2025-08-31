@@ -2,89 +2,147 @@
 {% block title %}Создание таблицы{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2 class="text-center">Создание таблицы в схеме {{ schema_name }}</h2>
-    <div class="card shadow-lg border-0 mx-auto panel-input">
-        <div class="card-body">
-            <form method="post">
-                {% csrf_token %}
-                <div class="mb-3 row align-items-center">
-                    <label for="table_name" class="col-sm-4 col-form-label"><strong>Название таблицы:</strong></label>
-                    <div class="col-sm-8">
-                        <input type="text" class="form-control" id="table_name" name="table_name" required>
-                    </div>
-                </div>
+    <div class="container mt-4">
+        <h2 class="text-center">Создание таблицы в схеме {{ schema_name }}</h2>
 
-                <h5>Столбцы</h5>
-                <div id="columns">
-                    <div class="row mb-2 column-row">
-                        <div class="col-md-5">
-                            <input type="text" class="form-control" name="column_name[]" placeholder="Название столбца" required>
-                        </div>
-                        <div class="col-md-5">
-                            <select class="form-control" name="column_type[]">
-                                <option value="INTEGER">Целое число</option>
-                                <option value="VARCHAR(255)">Текст</option>
-                                <option value="BOOLEAN">Логический</option>
-                                <option value="FLOAT">Число с плавающей запятой</option>
-                                <option value="DATE">Дата</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="button" class="btn btn-danger remove-column"><i class="bi bi-trash"></i></button>
+        <div class="card shadow-lg border-0 mx-auto panel-input">
+            <div class="card-body">
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+
+                    <div class="mb-3 row align-items-center">
+                        <label for="table_name" class="col-sm-4 col-form-label text-end">
+                            <strong>Название таблицы:</strong>
+                        </label>
+                        <div class="col-sm-8">
+                            <input type="text" class="form-control" id="table_name" name="table_name"
+                                   required pattern="^[a-zA-Z_][a-zA-Z0-9_]*$" maxlength="63"
+                                   placeholder="например, events">
+                            <div class="form-text">
+                                Разрешены латинские буквы, цифры и «_», первый символ — буква или «_».
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <button type="button" class="btn btn-primary mt-3" id="addColumn">
-                    <i class="bi bi-plus-lg"></i> Добавить столбец
-                </button>
+                    <hr class="my-3">
 
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
-                        <i class="bi bi-arrow-left"></i> Назад
-                    </a>
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-plus-lg"></i> Создать таблицу
-                    </button>
-                </div>
-            </form>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0"><strong>Столбцы</strong></h5>
+                        <button type="button" class="btn btn-outline-primary" id="addColumn">
+                            <i class="bi bi-plus-lg"></i> Добавить столбец
+                        </button>
+                    </div>
+
+                    <div id="columns" class="d-grid gap-2">
+                        {# строки добавляются JS-ом #}
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Назад
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check2-circle"></i> Создать таблицу
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            let idx = 0;
+            const columnsWrap = document.getElementById('columns');
+            const addBtn = document.getElementById('addColumn');
+
+            function rowTemplate(i) {
+                return `
+      <div class="row g-2 align-items-end column-row border rounded p-2">
+        <input type="hidden" name="row_indices[]" value="${i}">
+        <div class="col-md-3">
+          <label class="form-label mb-1"><strong>Имя столбца</strong></label>
+          <input type="text" class="form-control"
+                 name="column_name_${i}" required
+                 pattern="^[a-zA-Z_][a-zA-Z0-9_]*$" maxlength="63"
+                 placeholder="column_name">
+        </div>
+
+<div class="col-md-3">
+  <label class="form-label mb-1"><strong>Тип</strong></label>
+  <select class="form-select" name="column_type_${i}">
+    <option value="SMALLINT">Малое целое (SMALLINT)</option>
+    <option value="INTEGER">Целое (INTEGER)</option>
+    <option value="BIGINT">Большое целое (BIGINT)</option>
+
+    <option value="SERIAL">Автоинкремент (SERIAL)</option>
+    <option value="BIGSERIAL">Автоинкремент большой (BIGSERIAL)</option>
+
+    <option value="REAL">Real (REAL)</option>
+    <option value="DOUBLE PRECISION">Double (DOUBLE PRECISION)</option>
+    <option value="FLOAT">Float (синоним, сохранится как DOUBLE PRECISION)</option>
+    <option value="NUMERIC">Числовой (NUMERIC)</option>
+
+    <option value="BOOLEAN">Логический (BOOLEAN)</option>
+
+    <option value="CHAR(1)">Фикс. строка (CHAR(1))</option>
+    <option value="VARCHAR(255)">Строка (VARCHAR(255))</option>
+    <option value="TEXT">Текст (TEXT)</option>
+
+    <option value="DATE">Дата (DATE)</option>
+    <option value="TIME">Время (TIME)</option>
+    <option value="TIMESTAMP">Дата/время (TIMESTAMP)</option>
+    <option value="TIMESTAMPTZ">Дата/время c TZ (TIMESTAMPTZ)</option>
+
+    <option value="UUID">UUID</option>
+    <option value="JSONB">JSONB</option>
+    <option value="BYTEA">Двоичные данные (BYTEA)</option>
+  </select>
 </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-    document.getElementById("addColumn").addEventListener("click", function() {
-        let columnsDiv = document.getElementById("columns");
-        let newColumn = document.createElement("div");
-        newColumn.classList.add("row", "mb-2", "column-row");
-        newColumn.innerHTML = `
-            <div class="col-md-5">
-                <input type="text" class="form-control" name="column_name[]" placeholder="Название столбца" required>
-            </div>
-            <div class="col-md-5">
-                <select class="form-control" name="column_type[]">
-                    <option value="INTEGER">Целое число</option>
-                    <option value="VARCHAR(255)">Текст</option>
-                    <option value="BOOLEAN">Логический</option>
-                    <option value="FLOAT">Число с плавающей запятой</option>
-                    <option value="DATE">Дата</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button type="button" class="btn btn-danger remove-column"><i class="bi bi-trash"></i></button>
-            </div>
-        `;
-        columnsDiv.appendChild(newColumn);
-    });
 
-    document.getElementById("columns").addEventListener("click", function(event) {
-        if (event.target.closest(".remove-column")) {
-            event.target.closest(".column-row").remove();
-        }
-    });
-});
-</script>
+        <div class="col-md-4">
+          <label class="form-label mb-1"><strong>Комментарий</strong></label>
+          <input type="text" class="form-control"
+                 name="column_comment_${i}" placeholder="произвольное описание столбца">
+        </div>
 
+        <div class="col-md-1">
+          <label class="form-label mb-1"><strong>Уник.</strong></label>
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" name="column_unique_${i}">
+          </div>
+        </div>
+
+        <div class="col-md-1 text-end">
+          <button type="button" class="btn btn-outline-danger remove-column" title="Удалить столбец">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+    `;
+            }
+
+            function addRow(prefill = {}) {
+                const i = idx++;
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = rowTemplate(i);
+                const rowEl = wrapper.firstElementChild;
+
+                if (prefill.name) rowEl.querySelector(`[name="column_name_${i}"]`).value = prefill.name;
+                if (prefill.type) rowEl.querySelector(`[name="column_type_${i}"]`).value = prefill.type;
+                if (prefill.comment) rowEl.querySelector(`[name="column_comment_${i}"]`).value = prefill.comment;
+                if (prefill.unique) rowEl.querySelector(`[name="column_unique_${i}"]`).checked = !!prefill.unique;
+
+                rowEl.querySelector('.remove-column').addEventListener('click', () => rowEl.remove());
+                columnsWrap.appendChild(rowEl);
+            }
+
+            addBtn.addEventListener('click', () => addRow());
+
+            // стартовые 2 строки
+            addRow();
+            addRow();
+        })();
+    </script>
 {% endblock %}

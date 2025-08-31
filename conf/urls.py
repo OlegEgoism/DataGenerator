@@ -15,7 +15,8 @@ from data_generator.views import (
     project_create,
     project_edit,
     project_connection,
-    project_delete, database_schemas, database_schemas_create, database_schemas_tables, database_schema_delete, database_schema_edit, database_schemas_tables_columns, database_schemas_tables_delete, database_schemas_tables_edit, database_schemas_tables_create, view_table_data
+    project_delete, database_schemas, database_schemas_create, database_schemas_tables, database_schema_delete, database_schema_edit, database_schemas_tables_columns, database_schemas_tables_delete, database_schemas_tables_edit, database_schemas_tables_create,
+    database_schemas_table_data, database_schemas_table_add_columns
 
 )
 
@@ -47,7 +48,11 @@ urlpatterns = [
     path('database_schemas_tables_edit/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_tables_edit, name='database_schemas_tables_edit'),
     # TODO ПОЛЯ
     path('database_schemas_tables_columns/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_tables_columns, name='database_schemas_tables_columns'),
-    path('view_table_data/<int:pk>/<str:schema_name>/<str:table_name>/', view_table_data, name='view_table_data'),
+    path('database_schemas_table_data/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_table_data, name='database_schemas_table_data'),
+    path('database_schemas_tables_create/<int:pk>/<str:schema_name>/', database_schemas_tables_create, name='database_schemas_tables_create'),
+
+    path('database_schemas_table_add_columns/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_table_add_columns, name='database_schemas_table_add_columns'),
+
 ]
 
 if settings.DEBUG:
