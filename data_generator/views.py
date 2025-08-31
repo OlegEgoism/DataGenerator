@@ -616,47 +616,78 @@ def database_schemas_table_data(request, pk, schema_name, table_name):
 
 @login_required
 def database_schemas_tables_create(request, pk, schema_name):
-    """Создание таблицы в схеме базы данных"""
+    """Создание таблицы в схеме базы данных (устойчивый парсинг, проверка дубликатов)"""
     project = get_object_or_404(DataBaseUser, pk=pk)
     error_message = None
     allowed_types = ALLOWED_TYPES
     if request.method == "POST":
         table_name = (request.POST.get("table_name") or "").strip()
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
-            messages.error(request, "Название таблицы может содержать только латинские буквы, цифры и «_», и не может начинаться с цифры.")
-            return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-        row_indices = request.POST.getlist("row_indices[]")
-        if not row_indices:
+            messages.error(
+                request,
+                "Название таблицы может содержать только латинские буквы, цифры и «_», "
+                "и не может начинаться с цифры."
+            )
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        suffixes = []
+        for key in request.POST.keys():
+            if key.startswith("column_name_"):
+                suffixes.append(key[len("column_name_"):])
+        suffixes = list(dict.fromkeys(suffixes))
+        if not suffixes:
             messages.error(request, "Добавьте хотя бы один столбец.")
-            return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
         columns = []
-        for idx_str in row_indices:
-            name = (request.POST.get(f"column_name_{idx_str}") or "").strip()
-            type_key = (request.POST.get(f"column_type_{idx_str}") or "").strip()
-            comment = (request.POST.get(f"column_comment_{idx_str}") or "").strip()
-            unique_flag = request.POST.get(f"column_unique_{idx_str}") == "on"
+        for suf in suffixes:
+            name = (request.POST.get(f"column_name_{suf}") or "").strip()
+            type_key = (request.POST.get(f"column_type_{suf}") or "").strip()
+            comment = (request.POST.get(f"column_comment_{suf}") or "").strip()
+            unique_flag = request.POST.get(f"column_unique_{suf}") == "on"
             if not name:
                 continue
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
                 messages.error(request, f"Недопустимое имя столбца: «{name}».")
-                return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+                return render(request, "database_schemas_tables_create.html",
+                              {"project": project, "schema_name": schema_name})
             if type_key not in allowed_types:
                 messages.error(request, f"Недопустимый тип данных у столбца «{name}».")
-                return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+                return render(request, "database_schemas_tables_create.html",
+                              {"project": project, "schema_name": schema_name})
             columns.append({
                 "name": name,
                 "type_sql": allowed_types[type_key],
                 "comment": comment,
                 "unique": unique_flag,
             })
-
         if not columns:
             messages.error(request, "Нет валидных столбцов для создания.")
-            return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        if any(c["name"].lower() == "id" for c in columns):
+            messages.error(request, "Нельзя добавлять столбец с именем «id» — оно занято первичным ключом.")
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        seen, dupes = set(), []
+        for c in columns:
+            k = c["name"].lower()
+            if k in seen:
+                dupes.append(c["name"])
+            seen.add(k)
+        if dupes:
+            messages.error(
+                request,
+                "Дублирующиеся имена столбцов: " + ", ".join(sorted(set(dupes))) +
+                ". Имена столбцов должны быть уникальными."
+            )
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
         connection, error_message = get_db_connection(project)
         if not connection:
             messages.error(request, error_message or "Ошибка подключения к БД.")
-            return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
         try:
             with connection.cursor() as cursor:
                 cursor.execute("""
@@ -665,10 +696,13 @@ def database_schemas_tables_create(request, pk, schema_name):
                         WHERE table_schema = %s AND table_name = %s
                     );
                 """, (schema_name, table_name))
-                table_exists = cursor.fetchone()[0]
-                if table_exists:
-                    messages.error(request, f"Таблица «{table_name}» уже существует в схеме «{schema_name}».")
-                    return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
+                if cursor.fetchone()[0]:
+                    messages.error(
+                        request,
+                        f"Таблица «{table_name}» уже существует в схеме «{schema_name}»."
+                    )
+                    return render(request, "database_schemas_tables_create.html",
+                                  {"project": project, "schema_name": schema_name})
                 col_defs = []
                 for col in columns:
                     parts = [
@@ -712,6 +746,11 @@ def database_schemas_tables_create(request, pk, schema_name):
             "error_message": error_message
         }
     )
+
+
+
+# --------------------------------------------------
+
 
 
 @login_required
