@@ -51,50 +51,52 @@
                                 </a>
                             </div>
                             <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#renameSchemaModal-{{ forloop.counter }}"><i class="bi bi-pencil-square"></i> Редактировать</button>
-                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteSchemaModal-{{ forloop.counter }}"><i class="bi bi-trash3"></i> Удалить</button>
+                                <button type="button" class="btn btn-success"
+                                        data-bs-toggle="modal" data-bs-target="#renameSchemaModal-{{ forloop.counter }}">
+                                    <i class="bi bi-pencil-square"></i> Перименовать
+                                </button>
+                                <button type="button" class="btn btn-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteSchemaModal-{{ forloop.counter }}">
+                                    <i class="bi bi-trash3"></i> Удалить
+                                </button>
                             </div>
                         </li>
 
+                        {# --- MODAL: Переименовать схему (обновлённый стиль) --- #}
                         <div class="modal fade" id="renameSchemaModal-{{ forloop.counter }}" tabindex="-1"
                              aria-labelledby="renameSchemaLabel-{{ forloop.counter }}" aria-hidden="true">
                             <div class="modal-dialog">
                                 <div class="modal-content">
-                                    <div class="modal-header">
+                                    <div class="modal-header border-0 pb-0">
                                         <h5 class="modal-title" id="renameSchemaLabel-{{ forloop.counter }}">
-                                            Переименовать схему
+                                            Переименовать схему: {{ schema }}
                                         </h5>
                                         <button type="button" class="btn-close" data-bs-dismiss="modal"
                                                 aria-label="Закрыть"></button>
                                     </div>
-                                    <form method="post"
-                                          action="{% url 'database_schema_edit' project.pk schema %}">
+                                    <form method="post" action="{% url 'database_schema_edit' project.pk schema %}">
                                         {% csrf_token %}
                                         <div class="modal-body">
-                                            <div class="mb-2">
-                                                <label class="form-label"><strong>Текущее имя:</strong></label>
-                                                <div class="form-control-plaintext">{{ schema }}</div>
-                                            </div>
-                                            <div class="mb-2">
-                                                <label for="newSchemaName-{{ forloop.counter }}" class="form-label">
-                                                    Новое имя схемы
+                                            <div class="row mb-2 align-items-center">
+                                                <label for="newSchemaName-{{ forloop.counter }}"
+                                                       class="col-sm-4 col-form-label text-end">
+                                                    <strong>Новое имя:</strong>
                                                 </label>
-                                                <input type="text"
-                                                       class="form-control"
-                                                       id="newSchemaName-{{ forloop.counter }}"
-                                                       name="new_schema_name"
-                                                       value="{{ schema }}"
-                                                       required
-                                                       pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
-                                                       maxlength="63"
-                                                       placeholder="например, analytics_v2">
-                                                <div class="form-text">
-                                                    Допустимы латинские буквы, цифры и «_», первый символ — буква или «_».
+                                                <div class="col-sm-8">
+                                                    <input type="text"
+                                                           class="form-control"
+                                                           id="newSchemaName-{{ forloop.counter }}"
+                                                           name="new_schema_name"
+                                                           value="{{ schema }}"
+                                                           required
+                                                           pattern="^[a-zA-Z_][a-zA-Z0-9_]*$"
+                                                           maxlength="63"
+                                                           placeholder="">
                                                 </div>
                                             </div>
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                         </div>
-                                        <div class="modal-footer">
+                                        <div class="modal-footer border-0 pt-0">
                                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
                                             <button type="submit" class="btn btn-primary">
                                                 <i class="bi bi-check2"></i> Переименовать
@@ -105,12 +107,12 @@
                             </div>
                         </div>
 
-                        {# --- MODAL: Удалить схему --- #}
+                        {# --- MODAL: Удалить схему (обновлённый стиль) --- #}
                         <div class="modal fade" id="deleteSchemaModal-{{ forloop.counter }}" tabindex="-1"
                              aria-labelledby="deleteSchemaLabel-{{ forloop.counter }}" aria-hidden="true">
                             <div class="modal-dialog modal-dialog-centered">
                                 <div class="modal-content">
-                                    <div class="modal-header">
+                                    <div class="modal-header border-0 pb-0">
                                         <h5 class="modal-title" id="deleteSchemaLabel-{{ forloop.counter }}">
                                             Удалить схему?
                                         </h5>
@@ -118,14 +120,12 @@
                                                 aria-label="Закрыть"></button>
                                     </div>
                                     <div class="modal-body">
-                                        Вы действительно хотите удалить схему <strong>«{{ schema }}»</strong>?
-                                        <br>
+                                        Вы действительно хотите удалить схему <strong>«{{ schema }}»</strong>?<br>
                                         Это действие <strong>необратимо</strong> и удалит все объекты в схеме.
                                     </div>
-                                    <div class="modal-footer">
+                                    <div class="modal-footer border-0 pt-0">
                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                                        <form method="post"
-                                              action="{% url 'database_schema_delete' project.pk schema %}">
+                                        <form method="post" action="{% url 'database_schema_delete' project.pk schema %}">
                                             {% csrf_token %}
                                             <input type="hidden" name="next" value="{{ request.get_full_path }}">
                                             <button type="submit" class="btn btn-danger">
@@ -152,7 +152,9 @@
             <div class="d-flex justify-content-between mt-3">
                 <a href="{% url 'projects' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> Назад</a>
                 {% if not error_message %}
-                    <a href="{% url 'database_schemas_create' project.pk %}" class="btn btn-success"> <i class="bi bi-plus-lg"></i> Создать схему</a>
+                    <a href="{% url 'database_schemas_create' project.pk %}" class="btn btn-success">
+                        <i class="bi bi-plus-lg"></i> Создать схему
+                    </a>
                 {% endif %}
             </div>
         </div>

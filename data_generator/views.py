@@ -13,7 +13,34 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 
 IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+ALLOWED_TYPES = {
+        "SMALLINT": "SMALLINT",
+        "INTEGER": "INTEGER",
+        "BIGINT": "BIGINT",
 
+        "SERIAL": "SERIAL",
+        "BIGSERIAL": "BIGSERIAL",
+
+        "REAL": "REAL",
+        "DOUBLE PRECISION": "DOUBLE PRECISION",
+        "FLOAT": "DOUBLE PRECISION",
+        "NUMERIC": "NUMERIC",
+
+        "BOOLEAN": "BOOLEAN",
+
+        "CHAR(1)": "CHAR(1)",
+        "VARCHAR(255)": "VARCHAR(255)",
+        "TEXT": "TEXT",
+
+        "DATE": "DATE",
+        "TIME": "TIME",
+        "TIMESTAMP": "TIMESTAMP",
+        "TIMESTAMPTZ": "TIMESTAMPTZ",
+
+        "UUID": "UUID",
+        "JSONB": "JSONB",
+        "BYTEA": "BYTEA",
+    }
 
 def home(request):
     """Главная"""
@@ -589,41 +616,25 @@ def database_schemas_table_data(request, pk, schema_name, table_name):
 
 @login_required
 def database_schemas_tables_create(request, pk, schema_name):
-    """Создание таблицы в схеме БД: имя, столбцы, тип, комментарий, уникальность."""
+    """Создание таблицы в схеме базы данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
     error_message = None
-
-    # допустимые типы и их отображение в PostgreSQL
-    allowed_types = {
-        'INTEGER': 'INTEGER',
-        'VARCHAR(255)': 'VARCHAR(255)',
-        'BOOLEAN': 'BOOLEAN',
-        'FLOAT': 'DOUBLE PRECISION',  # маппим на DOUBLE PRECISION
-        'DATE': 'DATE',
-    }
-
+    allowed_types = ALLOWED_TYPES
     if request.method == "POST":
         table_name = (request.POST.get("table_name") or "").strip()
-
-        # валидируем имя таблицы
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
             messages.error(request, "Название таблицы может содержать только латинские буквы, цифры и «_», и не может начинаться с цифры.")
             return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-
-        # соберём индексы строк
         row_indices = request.POST.getlist("row_indices[]")
         if not row_indices:
             messages.error(request, "Добавьте хотя бы один столбец.")
             return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-
-        # подготовка данных по столбцам
         columns = []
         for idx_str in row_indices:
             name = (request.POST.get(f"column_name_{idx_str}") or "").strip()
             type_key = (request.POST.get(f"column_type_{idx_str}") or "").strip()
             comment = (request.POST.get(f"column_comment_{idx_str}") or "").strip()
             unique_flag = request.POST.get(f"column_unique_{idx_str}") == "on"
-
             if not name:
                 continue
             if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
@@ -632,7 +643,6 @@ def database_schemas_tables_create(request, pk, schema_name):
             if type_key not in allowed_types:
                 messages.error(request, f"Недопустимый тип данных у столбца «{name}».")
                 return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-
             columns.append({
                 "name": name,
                 "type_sql": allowed_types[type_key],
@@ -643,16 +653,12 @@ def database_schemas_tables_create(request, pk, schema_name):
         if not columns:
             messages.error(request, "Нет валидных столбцов для создания.")
             return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-
-        # подключение к БД
         connection, error_message = get_db_connection(project)
         if not connection:
             messages.error(request, error_message or "Ошибка подключения к БД.")
             return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-
         try:
             with connection.cursor() as cursor:
-                # проверим существование таблицы
                 cursor.execute("""
                     SELECT EXISTS (
                         SELECT 1 FROM information_schema.tables 
@@ -663,8 +669,6 @@ def database_schemas_tables_create(request, pk, schema_name):
                 if table_exists:
                     messages.error(request, f"Таблица «{table_name}» уже существует в схеме «{schema_name}».")
                     return render(request, "database_schemas_tables_create.html", {"project": project, "schema_name": schema_name})
-
-                # собираем части для CREATE TABLE
                 col_defs = []
                 for col in columns:
                     parts = [
@@ -675,8 +679,6 @@ def database_schemas_tables_create(request, pk, schema_name):
                     if col["unique"]:
                         parts.append(sql.SQL(" UNIQUE"))
                     col_defs.append(sql.Composed(parts))
-
-                # включим авто-первичный ключ id (как было у вас)
                 create_table_sql = sql.SQL(
                     "CREATE TABLE {}.{} (id SERIAL PRIMARY KEY, {});"
                 ).format(
@@ -685,8 +687,6 @@ def database_schemas_tables_create(request, pk, schema_name):
                     sql.SQL(", ").join(col_defs)
                 )
                 cursor.execute(create_table_sql)
-
-                # комментарии к столбцам (только если заданы)
                 for col in columns:
                     if col["comment"]:
                         cursor.execute(
@@ -695,18 +695,14 @@ def database_schemas_tables_create(request, pk, schema_name):
                             ),
                             (col["comment"],)
                         )
-
             connection.commit()
             messages.success(request, f"Таблица «{schema_name}.{table_name}» успешно создана.")
             return redirect("database_schemas_tables", pk=pk, schema_name=schema_name)
-
         except Exception as e:
             connection.rollback()
             messages.error(request, f"Ошибка создания таблицы: {str(e)}")
         finally:
             connection.close()
-
-    # GET — отрисовать форму
     return render(
         request,
         template_name="database_schemas_tables_create.html",
@@ -720,31 +716,18 @@ def database_schemas_tables_create(request, pk, schema_name):
 
 @login_required
 def database_schemas_table_add_columns(request, pk, schema_name: str, table_name: str):
-    """
-    Добавление нескольких столбцов в существующую таблицу.
-    Поддержка: имя, тип (INTEGER, VARCHAR(255), BOOLEAN, FLOAT, DATE), комментарий, уникальность.
-    """
+    """Добавление полей в таблицу базы данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
     next_url = request.POST.get("next") or reverse("database_schemas_tables_columns", args=[pk, schema_name, table_name])
 
     if request.method != "POST":
         return redirect(next_url)
-
-    # допустимые типы
-    allowed_types = {
-        "INTEGER": "INTEGER",
-        "VARCHAR(255)": "VARCHAR(255)",
-        "BOOLEAN": "BOOLEAN",
-        "FLOAT": "DOUBLE PRECISION",  # маппинг
-        "DATE": "DATE",
-    }
-
+    allowed_types = ALLOWED_TYPES
     row_indices = request.POST.getlist("row_indices[]")
     if not row_indices:
         messages.warning(request, "Добавьте хотя бы один столбец.")
         return redirect(next_url)
 
-    # собрать ввод
     cols = []
     for idx in row_indices:
         name = (request.POST.get(f"col_name_{idx}") or "").strip()
@@ -779,7 +762,6 @@ def database_schemas_table_add_columns(request, pk, schema_name: str, table_name
 
     try:
         with conn.cursor() as cur:
-            # Проверим, что таблица существует
             cur.execute("""
                 SELECT EXISTS (
                     SELECT 1 FROM information_schema.tables
