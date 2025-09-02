@@ -16,7 +16,7 @@ from data_generator.views import (
     project_edit,
     project_connection,
     project_delete, database_schemas, database_schemas_create, database_schemas_tables, database_schema_delete, database_schema_edit, database_schemas_tables_columns, database_schemas_tables_delete, database_schemas_tables_edit, database_schemas_tables_create,
-    database_schemas_table_data, database_schemas_table_add_columns, database_schemas_column_delete, database_schemas_column_edit, generate_fake_data
+    database_schemas_table_data, database_schemas_table_add_columns, database_schemas_column_delete, database_schemas_column_edit, generate_fake_data, generate_csv
 
 )
 
@@ -58,6 +58,8 @@ urlpatterns = [
     path('database_schemas_table_add_columns/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_table_add_columns, name='database_schemas_table_add_columns'),
 
     path('schemas/<int:pk>/<str:schema_name>/<str:table_name>/generate/', generate_fake_data, name='generate_fake_data'),
+
+    path('generate_csv/', generate_csv, name='generate_csv'),
 
 ]
 

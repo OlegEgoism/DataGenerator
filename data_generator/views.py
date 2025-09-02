@@ -1,8 +1,10 @@
+import csv
 import re
 import psycopg2
 from django.contrib.auth import logout
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q
+from django.http import HttpResponse
 from django.urls import reverse
 from faker import Faker
 from psycopg2 import sql
@@ -1139,3 +1141,66 @@ def generate_fake_data(request, pk, schema_name, table_name):
             'db_size_pretty': db_size_pretty,
             'error_message': error_message}
     )
+
+
+# TODO Создание CSV
+from django.http import StreamingHttpResponse, HttpResponse, HttpResponseBadRequest
+from django.utils import timezone
+import csv, io
+from faker import Faker
+
+def generate_csv(request):
+    """Создание файла CSV с модалками прогресса (AJAX + Blob-скачивание)."""
+    if request.method == 'POST':
+        fields = request.POST.getlist('fields')  # порядок сохраняется
+        if not fields:
+            return HttpResponseBadRequest('Не переданы поля (fields).')
+
+        try:
+            num_records = int(request.POST.get('num_records', 10))
+        except ValueError:
+            num_records = 10
+        # ограничим разумно
+        if num_records < 1:
+            num_records = 1
+        if num_records > 10_000_000:
+            num_records = 10_000_000
+
+        fake = Faker('ru_RU')
+
+        def row_iter():
+            # используем буфер, чтобы csv.writer не хранил всё в памяти
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            # заголовки
+            writer.writerow(fields)
+            yield buf.getvalue().encode('utf-8')
+            buf.seek(0); buf.truncate(0)
+            # строки
+            for _ in range(num_records):
+                # generate_fake_value(col_name, тип/маркер, fake) — как в вашем проекте
+                row = [generate_fake_value(col, col, fake) for col in fields]
+                writer.writerow(row)
+                data = buf.getvalue().encode('utf-8')
+                buf.seek(0); buf.truncate(0)
+                yield data
+
+        ts = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'fake_data_{ts}.csv'
+
+        resp = StreamingHttpResponse(row_iter(), content_type='text/csv; charset=utf-8')
+        resp['Content-Disposition'] = f'attachment; filename="{filename}"'
+        # Content-Length не ставим: потоковая выдача
+        return resp
+
+    # GET — страница
+    return render(
+        request,
+        template_name='generate_csv.html',
+        context={
+            # здесь нужен список доступных полей для CSV (строки)
+            # Если ранее вы передавали choices_list["text"], оставим так же:
+            'choices_list': choices_list["text"],
+        }
+    )
+
