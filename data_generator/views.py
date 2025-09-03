@@ -1198,9 +1198,64 @@ def generate_csv(request):
         request,
         template_name='generate_csv.html',
         context={
-            # здесь нужен список доступных полей для CSV (строки)
-            # Если ранее вы передавали choices_list["text"], оставим так же:
             'choices_list': choices_list["text"],
         }
     )
 
+
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+from psycopg2 import sql
+
+@login_required
+def database_schemas_table_clear(request, pk, schema_name: str, table_name: str):
+    """Полная очистка таблицы (TRUNCATE), опционально со сбросом идентификаторов."""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    next_url = request.POST.get("next") or reverse("database_schemas_tables_columns",
+                                                   args=[pk, schema_name, table_name])
+
+    if request.method != "POST":
+        return redirect(next_url)
+
+    restart_identity = request.POST.get("restart_identity") == "on"
+
+    conn, err = get_db_connection(project)
+    if not conn:
+        messages.warning(request, err or "Ошибка подключения к БД.")
+        return redirect(next_url)
+
+    try:
+        with conn.cursor() as cur:
+            # Сколько строк было — для сообщения пользователю
+            cur.execute(sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
+                sql.Identifier(schema_name), sql.Identifier(table_name)
+            ))
+            before_cnt = cur.fetchone()[0]
+
+            # TRUNCATE [RESTART IDENTITY]
+            truncate_sql = sql.SQL("TRUNCATE TABLE {} {}").format(
+                sql.Identifier(schema_name, table_name),
+                sql.SQL("RESTART IDENTITY") if restart_identity else sql.SQL("")
+            )
+            cur.execute(truncate_sql)
+
+        conn.commit()
+        if restart_identity:
+            messages.success(
+                request,
+                f"Таблица «{schema_name}.{table_name}» очищена "
+                f"(удалено {before_cnt} строк), автоинкремент сброшен."
+            )
+        else:
+            messages.success(
+                request,
+                f"Таблица «{schema_name}.{table_name}» очищена (удалено {before_cnt} строк)."
+            )
+    except Exception as e:
+        conn.rollback()
+        messages.warning(request, f"Ошибка очистки таблицы: {str(e)}")
+    finally:
+        conn.close()
+
+    return redirect(next_url)
