@@ -24,6 +24,7 @@
                     <div><i class="bi bi-calendar-week"></i><strong> Последний вход:</strong> {{ user.last_login|date:"d.m.Y - H:i" }}</div>
                     <div><i class="bi bi-calendar-check"></i><strong> Дата регистрации:</strong> {{ user.date_joined|date:"d.m.Y - H:i" }}</div>
                     <div><i class="bi bi-calendar2-check"></i><strong> Дата изменения:</strong> {{ user.updated|date:"d.m.Y - H:i" }}</div>
+                    <div><i class="bi bi-card-checklist"></i><strong> Количество проектов:</strong> {{ user_databases.count }} шт.</div>
                 </div>
             </div>
         </div>

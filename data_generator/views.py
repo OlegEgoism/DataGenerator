@@ -1,51 +1,21 @@
-import csv
 import re
 import psycopg2
+import csv, io
 from django.contrib.auth import logout
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.db.models import Q
-from django.http import HttpResponse
 from django.urls import reverse
-from faker import Faker
 from psycopg2 import sql
-
-from data_generator.data_choices_list import choices_list, generate_fake_value
+from django.http import StreamingHttpResponse, HttpResponseBadRequest
+from django.utils import timezone
+from faker import Faker
+from data_generator.data_choices_list import choices_list, generate_fake_value, ALLOWED_TYPES, ALL_CHOICES, IDENT_RE
 from data_generator.db_connection import get_db_connection
 from data_generator.forms import CustomUserCreationForm, CustomUserForm, DataBaseUserForm
 from data_generator.models import DataBaseUser, AppSettings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
-
-IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-ALLOWED_TYPES = {
-    "SMALLINT": "SMALLINT",
-    "INTEGER": "INTEGER",
-    "BIGINT": "BIGINT",
-
-    "SERIAL": "SERIAL",
-    "BIGSERIAL": "BIGSERIAL",
-
-    "REAL": "REAL",
-    "DOUBLE PRECISION": "DOUBLE PRECISION",
-    "FLOAT": "DOUBLE PRECISION",
-    "NUMERIC": "NUMERIC",
-
-    "BOOLEAN": "BOOLEAN",
-
-    "CHAR(1)": "CHAR(1)",
-    "VARCHAR(255)": "VARCHAR(255)",
-    "TEXT": "TEXT",
-
-    "DATE": "DATE",
-    "TIME": "TIME",
-    "TIMESTAMP": "TIMESTAMP",
-    "TIMESTAMPTZ": "TIMESTAMPTZ",
-
-    "UUID": "UUID",
-    "JSONB": "JSONB",
-    "BYTEA": "BYTEA",
-}
 
 
 def home(request):
@@ -87,6 +57,8 @@ def profile(request):
     """Профиль"""
     search_query = request.GET.get("search", "").strip()
     user_databases = DataBaseUser.objects.filter(user=request.user)
+    uc = user_databases.count()
+    print(uc)
     if search_query:
         user_databases = user_databases.filter(db_project__icontains=search_query)
     return render(request,
@@ -160,6 +132,19 @@ def project_create(request):
                   context={
                       'form': form}
                   )
+
+
+@login_required
+def project_delete(request, pk: int):
+    """Удаление проекта"""
+    project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
+    if request.method == "POST":
+        next_url = request.POST.get("next") or reverse("projects")
+        project_name = project.db_project
+        project.delete()
+        messages.success(request, f'Проект «{project_name}» удалён.')
+        return redirect(next_url)
+    return redirect("projects")
 
 
 @login_required
@@ -237,19 +222,6 @@ def project_connection(request, pk: int):
     except Exception as e:
         messages.warning(request, f"Ошибка подключения: {str(e)}")
     return redirect(next_url)
-
-
-@login_required
-def project_delete(request, pk: int):
-    """Удаление проекта"""
-    project = get_object_or_404(DataBaseUser, pk=pk, user=request.user)
-    if request.method == "POST":
-        next_url = request.POST.get("next") or reverse("projects")
-        project_name = project.db_project
-        project.delete()
-        messages.success(request, f'Проект «{project_name}» удалён.')
-        return redirect(next_url)
-    return redirect("projects")
 
 
 # TODO СХЕМЫ
@@ -435,6 +407,140 @@ def database_schemas_tables(request, pk, schema_name):
 
 
 @login_required
+def database_schemas_tables_create(request, pk, schema_name):
+    """Создание таблицы в схеме базы данных (устойчивый парсинг, проверка дубликатов)"""
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    error_message = None
+    allowed_types = ALLOWED_TYPES
+    if request.method == "POST":
+        table_name = (request.POST.get("table_name") or "").strip()
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
+            messages.error(
+                request,
+                "Название таблицы может содержать только латинские буквы, цифры и «_», "
+                "и не может начинаться с цифры."
+            )
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        suffixes = []
+        for key in request.POST.keys():
+            if key.startswith("column_name_"):
+                suffixes.append(key[len("column_name_"):])
+        suffixes = list(dict.fromkeys(suffixes))
+        if not suffixes:
+            messages.error(request, "Добавьте хотя бы один столбец.")
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        columns = []
+        for suf in suffixes:
+            name = (request.POST.get(f"column_name_{suf}") or "").strip()
+            type_key = (request.POST.get(f"column_type_{suf}") or "").strip()
+            comment = (request.POST.get(f"column_comment_{suf}") or "").strip()
+            unique_flag = request.POST.get(f"column_unique_{suf}") == "on"
+            if not name:
+                continue
+            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+                messages.error(request, f"Недопустимое имя столбца: «{name}».")
+                return render(request, "database_schemas_tables_create.html",
+                              {"project": project, "schema_name": schema_name})
+            if type_key not in allowed_types:
+                messages.error(request, f"Недопустимый тип данных у столбца «{name}».")
+                return render(request, "database_schemas_tables_create.html",
+                              {"project": project, "schema_name": schema_name})
+            columns.append({
+                "name": name,
+                "type_sql": allowed_types[type_key],
+                "comment": comment,
+                "unique": unique_flag,
+            })
+        if not columns:
+            messages.error(request, "Нет валидных столбцов для создания.")
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        if any(c["name"].lower() == "id" for c in columns):
+            messages.error(request, "Нельзя добавлять столбец с именем «id» — оно занято первичным ключом.")
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        seen, dupes = set(), []
+        for c in columns:
+            k = c["name"].lower()
+            if k in seen:
+                dupes.append(c["name"])
+            seen.add(k)
+        if dupes:
+            messages.error(
+                request,
+                "Дублирующиеся имена столбцов: " + ", ".join(sorted(set(dupes))) +
+                ". Имена столбцов должны быть уникальными."
+            )
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        connection, error_message = get_db_connection(project)
+        if not connection:
+            messages.error(request, error_message or "Ошибка подключения к БД.")
+            return render(request, "database_schemas_tables_create.html",
+                          {"project": project, "schema_name": schema_name})
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM information_schema.tables 
+                        WHERE table_schema = %s AND table_name = %s
+                    );
+                """, (schema_name, table_name))
+                if cursor.fetchone()[0]:
+                    messages.error(
+                        request,
+                        f"Таблица «{table_name}» уже существует в схеме «{schema_name}»."
+                    )
+                    return render(request, "database_schemas_tables_create.html",
+                                  {"project": project, "schema_name": schema_name})
+                col_defs = []
+                for col in columns:
+                    parts = [
+                        sql.Identifier(col["name"]),
+                        sql.SQL(" "),
+                        sql.SQL(col["type_sql"]),
+                    ]
+                    if col["unique"]:
+                        parts.append(sql.SQL(" UNIQUE"))
+                    col_defs.append(sql.Composed(parts))
+                create_table_sql = sql.SQL(
+                    "CREATE TABLE {}.{} (id SERIAL PRIMARY KEY, {});"
+                ).format(
+                    sql.Identifier(schema_name),
+                    sql.Identifier(table_name),
+                    sql.SQL(", ").join(col_defs)
+                )
+                cursor.execute(create_table_sql)
+                for col in columns:
+                    if col["comment"]:
+                        cursor.execute(
+                            sql.SQL("COMMENT ON COLUMN {} IS %s").format(
+                                sql.Identifier(schema_name, table_name, col["name"])
+                            ),
+                            (col["comment"],)
+                        )
+            connection.commit()
+            messages.success(request, f"Таблица «{schema_name}.{table_name}» успешно создана.")
+            return redirect("database_schemas_tables", pk=pk, schema_name=schema_name)
+        except Exception as e:
+            connection.rollback()
+            messages.error(request, f"Ошибка создания таблицы: {str(e)}")
+        finally:
+            connection.close()
+    return render(
+        request,
+        template_name="database_schemas_tables_create.html",
+        context={
+            "project": project,
+            "schema_name": schema_name,
+            "error_message": error_message
+        }
+    )
+
+
+@login_required
 def database_schemas_tables_delete(request, pk, schema_name: str, table_name: str):
     """Удаление таблицы в схеме базы данных"""
     project = get_object_or_404(DataBaseUser, pk=pk)
@@ -588,141 +694,6 @@ def database_schemas_tables_columns(request, pk, schema_name, table_name):
         "search_query": search_query,
         "db_size_pretty": db_size_pretty
     })
-
-
-@login_required
-def database_schemas_table_add_columns(request, pk, schema_name: str, table_name: str):
-    """
-    Добавление полей в таблицу базы данных (страница + обработка формы).
-    GET  -> отрисовываем форму
-    POST -> валидируем и выполняем ALTER TABLE ... ADD COLUMN ...
-    """
-    project = get_object_or_404(DataBaseUser, pk=pk)
-    next_url = request.POST.get("next") or reverse(
-        "database_schemas_tables_columns", args=[pk, schema_name, table_name]
-    )
-
-    # Показ формы
-    if request.method != "POST":
-        return render(
-            request,
-            template_name="database_schemas_table_add_columns.html",
-            context={
-                "project": project,
-                "schema_name": schema_name,
-                "table_name": table_name,
-                "error_message": None,
-            },
-        )
-
-    # Обработка формы
-    allowed_types = ALLOWED_TYPES
-    row_indices = request.POST.getlist("row_indices[]")
-    if not row_indices:
-        messages.warning(request, "Добавьте хотя бы один столбец.")
-        return redirect(next_url)
-
-    cols = []
-    names_seen_lower = set()
-    dups = set()
-
-    for idx in row_indices:
-        name = (request.POST.get(f"col_name_{idx}") or "").strip()
-        tkey = (request.POST.get(f"col_type_{idx}") or "").strip()
-        comment = (request.POST.get(f"col_comment_{idx}") or "").strip()
-        unique = request.POST.get(f"col_unique_{idx}") == "on"
-
-        if not name:
-            # пустые строки игнорируем
-            continue
-
-        if not IDENT_RE.match(name):
-            messages.warning(request, f"Недопустимое имя столбца: «{name}».")
-            return redirect(next_url)
-
-        if tkey not in allowed_types:
-            messages.warning(request, f"Недопустимый тип у столбца «{name}».")
-            return redirect(next_url)
-
-        low = name.lower()
-        if low in names_seen_lower:
-            dups.add(name)
-        names_seen_lower.add(low)
-
-        cols.append(
-            {
-                "name": name,
-                "type_sql": allowed_types[tkey],
-                "comment": comment,
-                "unique": unique,
-            }
-        )
-
-    if dups:
-        messages.warning(
-            request,
-            f"Дублирующиеся имена столбцов: {', '.join(sorted(dups))}. Имена столбцов должны быть уникальными.",
-        )
-        return redirect(next_url)
-
-    if not cols:
-        messages.warning(request, "Нет валидных столбцов для добавления.")
-        return redirect(next_url)
-
-    conn, err = get_db_connection(project)
-    if not conn:
-        messages.warning(request, err or "Ошибка подключения к БД.")
-        return redirect(next_url)
-
-    try:
-        with conn.cursor() as cur:
-            # проверим, что таблица существует
-            cur.execute(
-                """
-                SELECT EXISTS (
-                    SELECT 1 FROM information_schema.tables
-                    WHERE table_schema = %s AND table_name = %s
-                );
-                """,
-                (schema_name, table_name),
-            )
-            exists = cur.fetchone()[0]
-            if not exists:
-                messages.warning(request, "Таблица не найдена.")
-                return redirect(next_url)
-
-            # Добавляем по одному столбцу
-            for c in cols:
-                add_stmt = sql.SQL("ALTER TABLE {} ADD COLUMN {} {}").format(
-                    sql.Identifier(schema_name, table_name),
-                    sql.Identifier(c["name"]),
-                    sql.SQL(c["type_sql"]),
-                )
-                if c["unique"]:
-                    add_stmt = sql.Composed([add_stmt, sql.SQL(" UNIQUE")])
-                add_stmt = sql.Composed([add_stmt, sql.SQL(";")])
-                cur.execute(add_stmt)
-
-                if c["comment"]:
-                    cur.execute(
-                        sql.SQL("COMMENT ON COLUMN {} IS %s").format(
-                            sql.Identifier(schema_name, table_name, c["name"])
-                        ),
-                        (c["comment"],),
-                    )
-
-        conn.commit()
-        messages.success(
-            request,
-            f"Столбцы успешно добавлены в «{schema_name}.{table_name}».",
-        )
-    except Exception as e:
-        conn.rollback()
-        messages.warning(request, f"Ошибка добавления столбцов: {str(e)}")
-    finally:
-        conn.close()
-
-    return redirect(next_url)
 
 
 @login_required
@@ -901,312 +872,139 @@ def database_schemas_table_data(request, pk, schema_name, table_name):
 
 
 @login_required
-def database_schemas_tables_create(request, pk, schema_name):
-    """Создание таблицы в схеме базы данных (устойчивый парсинг, проверка дубликатов)"""
+def database_schemas_table_add_columns(request, pk, schema_name: str, table_name: str):
+    """
+    Добавление полей в таблицу базы данных (страница + обработка формы).
+    GET  -> отрисовываем форму
+    POST -> валидируем и выполняем ALTER TABLE ... ADD COLUMN ...
+    """
     project = get_object_or_404(DataBaseUser, pk=pk)
-    error_message = None
+    next_url = request.POST.get("next") or reverse(
+        "database_schemas_tables_columns", args=[pk, schema_name, table_name]
+    )
+
+    # Показ формы
+    if request.method != "POST":
+        return render(
+            request,
+            template_name="database_schemas_table_add_columns.html",
+            context={
+                "project": project,
+                "schema_name": schema_name,
+                "table_name": table_name,
+                "error_message": None,
+            },
+        )
+
+    # Обработка формы
     allowed_types = ALLOWED_TYPES
-    if request.method == "POST":
-        table_name = (request.POST.get("table_name") or "").strip()
-        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", table_name):
-            messages.error(
-                request,
-                "Название таблицы может содержать только латинские буквы, цифры и «_», "
-                "и не может начинаться с цифры."
-            )
-            return render(request, "database_schemas_tables_create.html",
-                          {"project": project, "schema_name": schema_name})
-        suffixes = []
-        for key in request.POST.keys():
-            if key.startswith("column_name_"):
-                suffixes.append(key[len("column_name_"):])
-        suffixes = list(dict.fromkeys(suffixes))
-        if not suffixes:
-            messages.error(request, "Добавьте хотя бы один столбец.")
-            return render(request, "database_schemas_tables_create.html",
-                          {"project": project, "schema_name": schema_name})
-        columns = []
-        for suf in suffixes:
-            name = (request.POST.get(f"column_name_{suf}") or "").strip()
-            type_key = (request.POST.get(f"column_type_{suf}") or "").strip()
-            comment = (request.POST.get(f"column_comment_{suf}") or "").strip()
-            unique_flag = request.POST.get(f"column_unique_{suf}") == "on"
-            if not name:
-                continue
-            if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
-                messages.error(request, f"Недопустимое имя столбца: «{name}».")
-                return render(request, "database_schemas_tables_create.html",
-                              {"project": project, "schema_name": schema_name})
-            if type_key not in allowed_types:
-                messages.error(request, f"Недопустимый тип данных у столбца «{name}».")
-                return render(request, "database_schemas_tables_create.html",
-                              {"project": project, "schema_name": schema_name})
-            columns.append({
+    row_indices = request.POST.getlist("row_indices[]")
+    if not row_indices:
+        messages.warning(request, "Добавьте хотя бы один столбец.")
+        return redirect(next_url)
+
+    cols = []
+    names_seen_lower = set()
+    dups = set()
+
+    for idx in row_indices:
+        name = (request.POST.get(f"col_name_{idx}") or "").strip()
+        tkey = (request.POST.get(f"col_type_{idx}") or "").strip()
+        comment = (request.POST.get(f"col_comment_{idx}") or "").strip()
+        unique = request.POST.get(f"col_unique_{idx}") == "on"
+
+        if not name:
+            # пустые строки игнорируем
+            continue
+
+        if not IDENT_RE.match(name):
+            messages.warning(request, f"Недопустимое имя столбца: «{name}».")
+            return redirect(next_url)
+
+        if tkey not in allowed_types:
+            messages.warning(request, f"Недопустимый тип у столбца «{name}».")
+            return redirect(next_url)
+
+        low = name.lower()
+        if low in names_seen_lower:
+            dups.add(name)
+        names_seen_lower.add(low)
+
+        cols.append(
+            {
                 "name": name,
-                "type_sql": allowed_types[type_key],
+                "type_sql": allowed_types[tkey],
                 "comment": comment,
-                "unique": unique_flag,
-            })
-        if not columns:
-            messages.error(request, "Нет валидных столбцов для создания.")
-            return render(request, "database_schemas_tables_create.html",
-                          {"project": project, "schema_name": schema_name})
-        if any(c["name"].lower() == "id" for c in columns):
-            messages.error(request, "Нельзя добавлять столбец с именем «id» — оно занято первичным ключом.")
-            return render(request, "database_schemas_tables_create.html",
-                          {"project": project, "schema_name": schema_name})
-        seen, dupes = set(), []
-        for c in columns:
-            k = c["name"].lower()
-            if k in seen:
-                dupes.append(c["name"])
-            seen.add(k)
-        if dupes:
-            messages.error(
-                request,
-                "Дублирующиеся имена столбцов: " + ", ".join(sorted(set(dupes))) +
-                ". Имена столбцов должны быть уникальными."
-            )
-            return render(request, "database_schemas_tables_create.html",
-                          {"project": project, "schema_name": schema_name})
-        connection, error_message = get_db_connection(project)
-        if not connection:
-            messages.error(request, error_message or "Ошибка подключения к БД.")
-            return render(request, "database_schemas_tables_create.html",
-                          {"project": project, "schema_name": schema_name})
-        try:
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT EXISTS (
-                        SELECT 1 FROM information_schema.tables 
-                        WHERE table_schema = %s AND table_name = %s
-                    );
-                """, (schema_name, table_name))
-                if cursor.fetchone()[0]:
-                    messages.error(
-                        request,
-                        f"Таблица «{table_name}» уже существует в схеме «{schema_name}»."
-                    )
-                    return render(request, "database_schemas_tables_create.html",
-                                  {"project": project, "schema_name": schema_name})
-                col_defs = []
-                for col in columns:
-                    parts = [
-                        sql.Identifier(col["name"]),
-                        sql.SQL(" "),
-                        sql.SQL(col["type_sql"]),
-                    ]
-                    if col["unique"]:
-                        parts.append(sql.SQL(" UNIQUE"))
-                    col_defs.append(sql.Composed(parts))
-                create_table_sql = sql.SQL(
-                    "CREATE TABLE {}.{} (id SERIAL PRIMARY KEY, {});"
-                ).format(
-                    sql.Identifier(schema_name),
-                    sql.Identifier(table_name),
-                    sql.SQL(", ").join(col_defs)
-                )
-                cursor.execute(create_table_sql)
-                for col in columns:
-                    if col["comment"]:
-                        cursor.execute(
-                            sql.SQL("COMMENT ON COLUMN {} IS %s").format(
-                                sql.Identifier(schema_name, table_name, col["name"])
-                            ),
-                            (col["comment"],)
-                        )
-            connection.commit()
-            messages.success(request, f"Таблица «{schema_name}.{table_name}» успешно создана.")
-            return redirect("database_schemas_tables", pk=pk, schema_name=schema_name)
-        except Exception as e:
-            connection.rollback()
-            messages.error(request, f"Ошибка создания таблицы: {str(e)}")
-        finally:
-            connection.close()
-    return render(
-        request,
-        template_name="database_schemas_tables_create.html",
-        context={
-            "project": project,
-            "schema_name": schema_name,
-            "error_message": error_message
-        }
-    )
+                "unique": unique,
+            }
+        )
 
+    if dups:
+        messages.warning(
+            request,
+            f"Дублирующиеся имена столбцов: {', '.join(sorted(dups))}. Имена столбцов должны быть уникальными.",
+        )
+        return redirect(next_url)
 
-# --------------------------------------------------
+    if not cols:
+        messages.warning(request, "Нет валидных столбцов для добавления.")
+        return redirect(next_url)
 
-@login_required
-def generate_fake_data(request, pk, schema_name, table_name):
-    """Генерация случайных данных для указанной таблицы"""
-    project = get_object_or_404(DataBaseUser, pk=pk)
-    fake = Faker('ru_RU')
-    error_message = None
-    inserted_rows = 0
-    record_count = 0
-    retry_attempts = 200
-    db_size_pretty = "-"
-    column_data = []
-    data_choices = choices_list
-    conn, error_message = get_db_connection(project)
-    if conn:
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    'SELECT COUNT(*) FROM "{}"."{}";'.format(schema_name, table_name)
-                )
-                record_count = cur.fetchone()[0]
-                cur.execute("""
-                    SELECT column_name, data_type
-                    FROM information_schema.columns
+    conn, err = get_db_connection(project)
+    if not conn:
+        messages.warning(request, err or "Ошибка подключения к БД.")
+        return redirect(next_url)
+
+    try:
+        with conn.cursor() as cur:
+            # проверим, что таблица существует
+            cur.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.tables
                     WHERE table_schema = %s AND table_name = %s
-                    ORDER BY ordinal_position;
-                """, (schema_name, table_name))
-                cols = cur.fetchall()
-                column_data = [
-                    {
-                        "name": c[0],
-                        "type": c[1],
-                        "choices": data_choices.get(c[1], ['Произвольное значение'])
-                    } for c in cols
-                ]
-                cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
-                db_size_pretty = cur.fetchone()[0]
-        except Exception as e:
-            error_message = f"Ошибка подключения: {str(e)}"
-        finally:
-            conn.close()
-    if request.method == 'POST' and error_message is None:
-        num_records = int(request.POST.get('num_records', 10))
-        conn2, err2 = get_db_connection(project)
-        if not conn2:
-            error_message = err2 or "Ошибка подключения для генерации."
-        else:
-            try:
-                with conn2.cursor() as cur:
-                    cur.execute("""
-                        SELECT column_name, data_type
-                        FROM information_schema.columns
-                        WHERE table_schema = %s AND table_name = %s
-                        ORDER BY ordinal_position;
-                    """, (schema_name, table_name))
-                    cols = cur.fetchall()
-                    cols_for_insert = [{"name": c[0], "type": c[1]} for c in cols]
-                    column_names_sql = ', '.join([f'"{c["name"]}"' for c in cols_for_insert])
-                    placeholders = ', '.join(['%s'] * len(cols_for_insert))
-                    insert_sql = f'INSERT INTO "{schema_name}"."{table_name}" ({column_names_sql}) VALUES ({placeholders})'
-                    for _ in range(num_records):
-                        attempt = 0
-                        while attempt < retry_attempts:
-                            values = [
-                                generate_fake_value(
-                                    col["name"],
-                                    request.POST.get(f'column_{col["name"]}', 'Произвольное значение'),
-                                    fake
-                                )
-                                for col in cols_for_insert
-                            ]
-                            try:
-                                cur.execute(insert_sql, values)
-                                inserted_rows += 1
-                                break
-                            except psycopg2.IntegrityError:
-                                conn2.rollback()
-                                attempt += 1
-                                if attempt == retry_attempts:
-                                    raise
-                    conn2.commit()
+                );
+                """,
+                (schema_name, table_name),
+            )
+            exists = cur.fetchone()[0]
+            if not exists:
+                messages.warning(request, "Таблица не найдена.")
+                return redirect(next_url)
+
+            # Добавляем по одному столбцу
+            for c in cols:
+                add_stmt = sql.SQL("ALTER TABLE {} ADD COLUMN {} {}").format(
+                    sql.Identifier(schema_name, table_name),
+                    sql.Identifier(c["name"]),
+                    sql.SQL(c["type_sql"]),
+                )
+                if c["unique"]:
+                    add_stmt = sql.Composed([add_stmt, sql.SQL(" UNIQUE")])
+                add_stmt = sql.Composed([add_stmt, sql.SQL(";")])
+                cur.execute(add_stmt)
+
+                if c["comment"]:
                     cur.execute(
-                        'SELECT COUNT(*) FROM "{}"."{}";'.format(schema_name, table_name)
+                        sql.SQL("COMMENT ON COLUMN {} IS %s").format(
+                            sql.Identifier(schema_name, table_name, c["name"])
+                        ),
+                        (c["comment"],),
                     )
-                    record_count = cur.fetchone()[0]
-                    cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
-                    db_size_pretty = cur.fetchone()[0]
-            except psycopg2.IntegrityError as e:
-                error_message = f"Ошибка вставки данных (дубликат): {str(e)}"
-            except Exception as e:
-                error_message = f"Ошибка вставки данных: {str(e)}"
-            finally:
-                conn2.close()
-    return render(
-        request,
-        template_name='generate_fake_data.html',
-        context={
-            'project': project,
-            'schema_name': schema_name,
-            'table_name': table_name,
-            'column_data': column_data,
-            'inserted_rows': inserted_rows,
-            'record_count': record_count,
-            'db_size_pretty': db_size_pretty,
-            'error_message': error_message}
-    )
 
+        conn.commit()
+        messages.success(
+            request,
+            f"Столбцы успешно добавлены в «{schema_name}.{table_name}».",
+        )
+    except Exception as e:
+        conn.rollback()
+        messages.warning(request, f"Ошибка добавления столбцов: {str(e)}")
+    finally:
+        conn.close()
 
-# TODO Создание CSV
-from django.http import StreamingHttpResponse, HttpResponse, HttpResponseBadRequest
-from django.utils import timezone
-import csv, io
-from faker import Faker
+    return redirect(next_url)
 
-def generate_csv(request):
-    """Создание файла CSV с модалками прогресса (AJAX + Blob-скачивание)."""
-    if request.method == 'POST':
-        fields = request.POST.getlist('fields')  # порядок сохраняется
-        if not fields:
-            return HttpResponseBadRequest('Не переданы поля (fields).')
-
-        try:
-            num_records = int(request.POST.get('num_records', 10))
-        except ValueError:
-            num_records = 10
-        # ограничим разумно
-        if num_records < 1:
-            num_records = 1
-        if num_records > 10_000_000:
-            num_records = 10_000_000
-
-        fake = Faker('ru_RU')
-
-        def row_iter():
-            # используем буфер, чтобы csv.writer не хранил всё в памяти
-            buf = io.StringIO()
-            writer = csv.writer(buf)
-            # заголовки
-            writer.writerow(fields)
-            yield buf.getvalue().encode('utf-8')
-            buf.seek(0); buf.truncate(0)
-            # строки
-            for _ in range(num_records):
-                # generate_fake_value(col_name, тип/маркер, fake) — как в вашем проекте
-                row = [generate_fake_value(col, col, fake) for col in fields]
-                writer.writerow(row)
-                data = buf.getvalue().encode('utf-8')
-                buf.seek(0); buf.truncate(0)
-                yield data
-
-        ts = timezone.now().strftime('%Y%m%d_%H%M%S')
-        filename = f'fake_data_{ts}.csv'
-
-        resp = StreamingHttpResponse(row_iter(), content_type='text/csv; charset=utf-8')
-        resp['Content-Disposition'] = f'attachment; filename="{filename}"'
-        # Content-Length не ставим: потоковая выдача
-        return resp
-
-    # GET — страница
-    return render(
-        request,
-        template_name='generate_csv.html',
-        context={
-            'choices_list': choices_list["text"],
-        }
-    )
-
-
-from django.contrib import messages
-from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
-from psycopg2 import sql
 
 @login_required
 def database_schemas_table_clear(request, pk, schema_name: str, table_name: str):
@@ -1259,3 +1057,175 @@ def database_schemas_table_clear(request, pk, schema_name: str, table_name: str)
         conn.close()
 
     return redirect(next_url)
+
+
+# TODO ГЕНЕРАТОР
+@login_required
+def generate_fake_data(request, pk, schema_name, table_name):
+    project = get_object_or_404(DataBaseUser, pk=pk)
+    fake = Faker('ru_RU')
+    Faker.seed()
+
+    error_message = None
+    inserted_rows = 0
+    record_count = 0
+    retry_attempts = 200
+    db_size_pretty = "-"
+    column_data = []
+
+    conn, error_message = get_db_connection(project)
+    if conn:
+        try:
+            with conn.cursor() as cur:
+                # Подсчёт записей
+                cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
+                record_count = cur.fetchone()[0]
+
+                # Получение колонок
+                cur.execute("""
+                    SELECT column_name, data_type
+                    FROM information_schema.columns
+                    WHERE table_schema = %s AND table_name = %s
+                    ORDER BY ordinal_position;
+                """, (schema_name, table_name))
+                cols = cur.fetchall()
+
+                # Сопоставление с choices_list (используем точное имя типа)
+                column_data = []
+                for col_name, db_type in cols:
+                    # Приводим тип к ключу в choices_list
+                    choices = choices_list.get(db_type.lower(), ['Произвольное значение'])
+                    column_data.append({
+                        "name": col_name,
+                        "type": db_type,
+                        "choices": choices
+                    })
+
+                cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
+                db_size_pretty = cur.fetchone()[0]
+        except Exception as e:
+            error_message = f"Ошибка получения структуры: {str(e)}"
+        finally:
+            conn.close()
+
+    # === Вставка данных ===
+    if request.method == 'POST' and not error_message:
+        try:
+            num_records = int(request.POST.get('num_records', 10))
+        except (ValueError, TypeError):
+            num_records = 10
+        num_records = max(1, min(num_records, 10000))
+
+        conn2, err2 = get_db_connection(project)
+        if not conn2:
+            error_message = err2 or "Не удалось подключиться к БД."
+        else:
+            try:
+                with conn2.cursor() as cur:
+                    cur.execute("""
+                        SELECT column_name, data_type
+                        FROM information_schema.columns
+                        WHERE table_schema = %s AND table_name = %s
+                        ORDER BY ordinal_position;
+                    """, (schema_name, table_name))
+                    cols = cur.fetchall()
+                    cols_for_insert = [{"name": c[0], "type": c[1]} for c in cols]
+
+                    if not cols_for_insert:
+                        error_message = "Таблица пуста или не существует."
+                    else:
+                        column_names_sql = ', '.join([f'"{c["name"]}"' for c in cols_for_insert])
+                        placeholders = ', '.join(['%s'] * len(cols_for_insert))
+                        insert_sql = f'INSERT INTO "{schema_name}"."{table_name}" ({column_names_sql}) VALUES ({placeholders})'
+
+                        for _ in range(num_records):
+                            attempt = 0
+                            while attempt < retry_attempts:
+                                values = [
+                                    generate_fake_value(
+                                        col["name"],
+                                        request.POST.get(f'column_{col["name"]}', 'Произвольное значение'),
+                                        fake
+                                    )
+                                    for col in cols_for_insert
+                                ]
+                                try:
+                                    cur.execute(insert_sql, values)
+                                    inserted_rows += 1
+                                    break
+                                except psycopg2.IntegrityError:
+                                    conn2.rollback()
+                                    attempt += 1
+                                    if attempt >= retry_attempts:
+                                        raise
+                        conn2.commit()
+
+                        # Обновляем счётчики
+                        cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
+                        record_count = cur.fetchone()[0]
+                        cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
+                        db_size_pretty = cur.fetchone()[0]
+
+            except psycopg2.IntegrityError as e:
+                error_message = f"Ошибка целостности (дубликат): {str(e)}"
+            except Exception as e:
+                error_message = f"Ошибка вставки: {str(e)}"
+            finally:
+                if conn2:
+                    conn2.close()
+
+    return render(request, 'generate_fake_data.html', {
+        'project': project,
+        'schema_name': schema_name,
+        'table_name': table_name,
+        'column_data': column_data,
+        'inserted_rows': inserted_rows,
+        'record_count': record_count,
+        'db_size_pretty': db_size_pretty,
+        'error_message': error_message
+    })
+
+
+# TODO CSV
+@login_required
+def generate_csv(request):
+    if request.method == 'POST':
+        fields = request.POST.getlist('fields')
+        if not fields:
+            return HttpResponseBadRequest('Не переданы поля (fields).')
+
+        try:
+            num_records = int(request.POST.get('num_records', 10))
+        except (ValueError, TypeError):
+            num_records = 10
+        num_records = max(1, min(num_records, 10_000_000))  # Ограничение
+
+        fake = Faker('ru_RU')
+        Faker.seed()  # Для случайности
+
+        def row_iter():
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+
+            # Заголовок
+            writer.writerow(fields)
+            yield buf.getvalue().encode('utf-8')
+            buf.seek(0);
+            buf.truncate()
+
+            # Данные
+            for _ in range(num_records):
+                row = [generate_fake_value(col, col, fake) for col in fields]
+                writer.writerow(row)
+                yield buf.getvalue().encode('utf-8')
+                buf.seek(0);
+                buf.truncate()
+
+        ts = timezone.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'fake_data_{ts}.csv'
+
+        response = StreamingHttpResponse(row_iter(), content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+    return render(request, 'generate_csv.html', {'choices_list': ALL_CHOICES})

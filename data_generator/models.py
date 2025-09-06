@@ -51,7 +51,6 @@ class DataBaseName(DateStamp):
             'mysql': 'images_db/MySQL.jpg',
             'oracle': 'images_db/Oracle.jpg',
             'postgresql': 'images_db/PostgreSQL.jpg',
-            'sqlite': 'images_db/SQLite.jpg',
         }
         db_key = self.name.lower().strip()
         self.images_db = image_mapping.get(db_key, 'images_db/default.jpg')

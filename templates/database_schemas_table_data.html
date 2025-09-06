@@ -29,7 +29,7 @@
             <h5><strong>Размер БД:</strong> {{ db_size_pretty }}</h5>
             <h5><strong>Количество записей в таблице:</strong> {{ record_count }} шт.</h5>
             <h5><strong>Количество записей на странице:</strong> {{ records_on_page }} шт.</h5>
-        
+
             <!-- Поиск по данным таблицы -->
             <div class="d-flex flex-wrap align-items-center gap-2 mb-2 mt-2">
                 <form method="get" class="d-flex gap-2 flex-grow-1">
@@ -53,25 +53,25 @@
                     Результаты поиска по запросу: <strong>{{ search_query }}</strong>
                 </div>
             {% endif %}
-            <h5><strong>Таблица:</strong></h5>    
+            <h5><strong>Таблица:</strong></h5>
 
             <div class="table-responsive">
                 <table class="table table-striped table-hover align-middle text-start">
                     <thead class="table-dark">
-                        <tr>
-                            {% for column in columns %}
-                                <th>{{ column }}</th>
-                            {% endfor %}
-                        </tr>
+                    <tr>
+                        {% for column in columns %}
+                            <th>{{ column }}</th>
+                        {% endfor %}
+                    </tr>
                     </thead>
                     <tbody>
-                        {% for row in rows %}
-                            <tr>
-                                {% for value in row %}
-                                    <td>{{ value }}</td>
-                                {% endfor %}
-                            </tr>
-                        {% endfor %}
+                    {% for row in rows %}
+                        <tr>
+                            {% for value in row %}
+                                <td>{{ value }}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
                     </tbody>
                 </table>
             </div>
@@ -122,29 +122,6 @@
     </div>
 
     <script src="{% static 'js/search.js' %}"></script>
-    <script>
-        document.addEventListener("DOMContentLoaded", function () {
-            const pageNumberInput = document.getElementById("pageNumberInput");
-            const goToPageButton = document.getElementById("goToPageButton");
+    <script src="{% static 'js/table_data.js' %}"></script>
 
-            goToPageButton.addEventListener("click", function () {
-                const page = pageNumberInput.value;
-                const maxPage = parseInt(pageNumberInput.max);
-                if (page < 1 || page > maxPage) {
-                    alert(`Введите номер страницы от 1 до ${maxPage}`);
-                    return;
-                }
-                const urlParams = new URLSearchParams(window.location.search);
-                urlParams.set("page", page);
-                window.location.search = urlParams.toString();
-            });
-
-            pageNumberInput.addEventListener("keypress", function (event) {
-                if (event.key === "Enter") {
-                    goToPageButton.click();
-                    event.preventDefault();
-                }
-            });
-        });
-    </script>
 {% endblock %}

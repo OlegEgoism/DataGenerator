@@ -184,22 +184,26 @@
         <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
           <i class="bi bi-arrow-left"></i> Назад
         </a>
-        <div class="d-flex gap-2">
-          <a href="{% url 'database_schemas_table_data' project.pk schema_name table_name %}" class="btn btn-success">
-            <i class="bi bi-table"></i> Данные в таблице
-          </a>
-          <a href="{% url 'generate_fake_data' project.pk schema_name table_name %}" class="btn btn-success">
-            <i class="bi bi-arrow-repeat"></i> Сгенерировать данные
-          </a>
-          <a href="{% url 'database_schemas_table_add_columns' project.pk schema_name table_name %}" class="btn btn-success">
-            <i class="bi bi-plus-lg"></i> Добавить поля
-          </a>
-          <!-- Очистить таблицу -->
-          <button type="button" class="btn btn-danger"
-                  data-bs-toggle="modal" data-bs-target="#clearTableModal">
-            <i class="bi bi-trash"></i> Очистить таблицу
-          </button>
-        </div>
+
+        {% if columns %}
+          <div class="d-flex gap-2">
+            <a href="{% url 'database_schemas_table_data' project.pk schema_name table_name %}" class="btn btn-success">
+              <i class="bi bi-table"></i> Данные в таблице
+            </a>
+            <a href="{% url 'generate_fake_data' project.pk schema_name table_name %}" class="btn btn-success">
+              <i class="bi bi-arrow-repeat"></i> Сгенерировать данные
+            </a>
+
+            <!-- Очистить таблицу -->
+            <button type="button" class="btn btn-danger"
+                    data-bs-toggle="modal" data-bs-target="#clearTableModal">
+              <i class="bi bi-trash"></i> Очистить таблицу
+            </button>
+          </div>
+        {% endif %}
+                  <a href="{% url 'database_schemas_table_add_columns' project.pk schema_name table_name %}" class="btn btn-success">
+              <i class="bi bi-plus-lg"></i> Добавить поля
+            </a>
       </div>
     </div>
   </div>

@@ -13,11 +13,30 @@ from data_generator.views import (
 
     projects,
     project_create,
+    project_delete,
     project_edit,
     project_connection,
-    project_delete, database_schemas, database_schemas_create, database_schemas_tables, database_schema_delete, database_schema_edit, database_schemas_tables_columns, database_schemas_tables_delete, database_schemas_tables_edit, database_schemas_tables_create,
-    database_schemas_table_data, database_schemas_table_add_columns, database_schemas_column_delete, database_schemas_column_edit, generate_fake_data, generate_csv, database_schemas_table_clear
 
+    database_schemas,
+    database_schemas_create,
+    database_schema_delete,
+    database_schema_edit,
+
+    database_schemas_tables,
+    database_schemas_tables_create,
+    database_schemas_tables_delete,
+    database_schemas_tables_edit,
+
+    database_schemas_tables_columns,
+    database_schemas_column_delete,
+    database_schemas_column_edit,
+    database_schemas_table_data,
+    database_schemas_table_add_columns,
+    database_schemas_table_clear,
+
+    generate_fake_data,
+
+    generate_csv
 )
 
 urlpatterns = [
@@ -33,9 +52,9 @@ urlpatterns = [
     # TODO ПРОЕКТ
     path("projects/", projects, name="projects"),
     path('project_create/', project_create, name='project_create'),
+    path("project_delete/<int:pk>/", project_delete, name="project_delete"),
     path('project_edit/<int:pk>/', project_edit, name='projects_edit'),
     path('project_connection/<int:pk>/', project_connection, name='project_connection'),
-    path("project_delete/<int:pk>/", project_delete, name="project_delete"),
     # TODO СХЕМЫ
     path('database_schemas/<int:pk>/', database_schemas, name='database_schemas'),
     path('database_schemas_create/<int:pk>/', database_schemas_create, name='database_schemas_create'),
@@ -48,19 +67,15 @@ urlpatterns = [
     path('database_schemas_tables_edit/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_tables_edit, name='database_schemas_tables_edit'),
     # TODO ПОЛЯ
     path('database_schemas_tables_columns/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_tables_columns, name='database_schemas_tables_columns'),
-    path('database_schemas_tables_create/<int:pk>/<str:schema_name>/', database_schemas_tables_create, name='database_schemas_tables_create'),
     path('database_column_delete/<int:pk>/<str:schema_name>/<str:table_name>/<str:column_name>/', database_schemas_column_delete, name='database_schemas_column_delete'),
     path('database_column_edit/<int:pk>/<str:schema_name>/<str:table_name>/<str:column_name>/', database_schemas_column_edit, name='database_schemas_column_edit'),
-
     path('database_schemas_table_data/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_table_data, name='database_schemas_table_data'),
-
     path('database_schemas_table_add_columns/<int:pk>/<str:schema_name>/<str:table_name>/', database_schemas_table_add_columns, name='database_schemas_table_add_columns'),
-
-    path('schemas/<int:pk>/<str:schema_name>/<str:table_name>/generate/', generate_fake_data, name='generate_fake_data'),
-
-    path('generate_csv/', generate_csv, name='generate_csv'),
-
     path("schemas/<int:pk>/<str:schema_name>/<str:table_name>/clear/", database_schemas_table_clear, name="database_schemas_table_clear", ),
+    # TODO ГЕНЕРАТОР
+    path('schemas/<int:pk>/<str:schema_name>/<str:table_name>/generate/', generate_fake_data, name='generate_fake_data'),
+    # TODO CSV
+    path('generate_csv/', generate_csv, name='generate_csv'),
 ]
 
 if settings.DEBUG:
