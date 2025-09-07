@@ -743,20 +743,25 @@ def database_schemas_column_delete(request, pk, schema_name: str, table_name: st
 
 @login_required
 def database_schemas_column_edit(request, pk, schema_name: str, table_name: str, column_name: str):
-    """Переименование колонки в таблице"""
+    """Переименование колонки и/или редактирование комментария"""
     project = get_object_or_404(DataBaseUser, pk=pk)
     next_url = request.POST.get("next") or reverse("database_schemas_tables_columns", args=[pk, schema_name, table_name])
     if request.method != "POST":
         return redirect(next_url)
 
     new_name = (request.POST.get("new_column_name") or "").strip()
-    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", new_name):
+    new_comment = (request.POST.get("new_column_comment") or "").strip()  # Может быть пустым
+
+    # Валидация нового имени (если задано)
+    if new_name and not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", new_name):
         messages.warning(request, "Недопустимое имя колонки. Разрешены латинские буквы, цифры и «_», первый символ — буква или «_».")
         return redirect(next_url)
-    if new_name == column_name:
-        messages.info(request, "Имя колонки не изменилось.")
-        return redirect(next_url)
 
+    # Если имя не изменилось, оставляем старое
+    if not new_name:
+        new_name = column_name
+
+    # Подключение к БД
     conn, error_message = get_db_connection(project)
     if not conn:
         messages.warning(request, error_message or "Ошибка подключения к БД.")
@@ -764,31 +769,72 @@ def database_schemas_column_edit(request, pk, schema_name: str, table_name: str,
 
     try:
         with conn.cursor() as cur:
-            # Проверим, что новая колонка ещё не существует
+            # Проверка существования колонки
             cur.execute("""
                 SELECT EXISTS (
                     SELECT 1
                     FROM information_schema.columns
                     WHERE table_schema=%s AND table_name=%s AND column_name=%s
                 );
-            """, (schema_name, table_name, new_name))
+            """, (schema_name, table_name, column_name))
             exists = cur.fetchone()[0]
-            if exists:
-                messages.warning(request, f"Колонка «{new_name}» уже существует в «{schema_name}.{table_name}».")
+            if not exists:
+                messages.warning(request, f"Колонка «{column_name}» не найдена.")
                 return redirect(next_url)
 
-            rename_stmt = sql.SQL("ALTER TABLE {} RENAME COLUMN {} TO {};").format(
-                sql.Identifier(schema_name, table_name),
-                sql.Identifier(column_name),
-                sql.Identifier(new_name)
+            # Проверка, существует ли новое имя (если изменили)
+            if new_name != column_name:
+                cur.execute("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM information_schema.columns
+                        WHERE table_schema=%s AND table_name=%s AND column_name=%s
+                    );
+                """, (schema_name, table_name, new_name))
+                if cur.fetchone()[0]:
+                    messages.warning(request, f"Колонка «{new_name}» уже существует в «{schema_name}.{table_name}».")
+                    return redirect(next_url)
+
+            # Переименование, если нужно
+            if new_name != column_name:
+                rename_stmt = sql.SQL("ALTER TABLE {} RENAME COLUMN {} TO {};").format(
+                    sql.Identifier(schema_name, table_name),
+                    sql.Identifier(column_name),
+                    sql.Identifier(new_name)
+                )
+                cur.execute(rename_stmt)
+
+            # Обновление комментария (всегда, даже если пустой — удалим комментарий)
+            comment_stmt = sql.SQL("COMMENT ON COLUMN {}.{}.{} IS %s;").format(
+                sql.Identifier(schema_name),
+                sql.Identifier(table_name),
+                sql.Identifier(new_name)  # используем новое имя, если изменилось
             )
-            cur.execute(rename_stmt)
+            cur.execute(comment_stmt, (new_comment or None,))  # None удаляет комментарий
 
         conn.commit()
-        messages.success(request, f"Колонка «{schema_name}.{table_name}.{column_name}» переименована в «{schema_name}.{table_name}.{new_name}».")
+
+        if new_name != column_name and new_comment:
+            messages.success(
+                request,
+                f"Колонка переименована в «{new_name}» и обновлён комментарий."
+            )
+        elif new_name != column_name:
+            messages.success(
+                request,
+                f"Колонка «{column_name}» переименована в «{new_name}»."
+            )
+        elif new_comment or (request.POST.get("new_column_comment") is not None):
+            messages.success(
+                request,
+                f"Комментарий к колонке «{new_name}» обновлён."
+            )
+        else:
+            messages.info(request, "Изменений не требуется.")
+
     except Exception as e:
         conn.rollback()
-        messages.warning(request, f"Ошибка переименования колонки: {str(e)}")
+        messages.warning(request, f"Ошибка при редактировании колонки: {str(e)}")
     finally:
         conn.close()
 
