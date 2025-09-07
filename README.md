@@ -33,6 +33,6 @@ sudo docker run --rm --network=host data-generator
 При старте контейнера автоматически выполняются миграции и создаётся пользователь логин/пароль: `admin`/`admin`.
 
 
-# Видео демонстрация
+## Видео демонстрация
 
 [![Смотреть демо](https://img.youtube.com/vi/endnZu9CmkE/maxresdefault.jpg)](https://www.youtube.com/watch?v=endnZu9CmkE)
