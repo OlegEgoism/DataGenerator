@@ -35,5 +35,4 @@ sudo docker run --rm --network=host data-generator
 
 # Видео демонстрация
 
-[![YouTube Video](https://img.youtube.com/vi/eNh-yalHPO0/0.jpg)](https://youtu.be/endnZu9CmkE)
-
+[![Смотреть демо](https://img.youtube.com/vi/endnZu9CmkE/maxresdefault.jpg)](https://www.youtube.com/watch?v=endnZu9CmkE)
