@@ -58,7 +58,6 @@ def profile(request):
     search_query = request.GET.get("search", "").strip()
     user_databases = DataBaseUser.objects.filter(user=request.user)
     uc = user_databases.count()
-    print(uc)
     if search_query:
         user_databases = user_databases.filter(db_project__icontains=search_query)
     return render(request,
