@@ -63,14 +63,15 @@
                                         {{ table }}
                                     </a>
                                 </div>
-
                                 <div class="d-flex gap-2">
-                                    <a href="#"
-                                       class="btn btn-success btn"
-                                       data-bs-toggle="modal"
-                                       data-bs-target="#renameTableModal-{{ forloop.counter }}">
-                                        <i class="bi bi-pencil-square"></i> Переименовать
-                                    </a>
+                                    {% if engine != "clickhouse" %}
+                                        <a href="#"
+                                           class="btn btn-success btn"
+                                           data-bs-toggle="modal"
+                                           data-bs-target="#renameTableModal-{{ forloop.counter }}">
+                                            <i class="bi bi-pencil-square"></i> Переименовать
+                                        </a>
+                                    {% endif %}
                                     <button type="button"
                                             class="btn btn-danger btn"
                                             data-bs-toggle="modal"

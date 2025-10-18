@@ -19,7 +19,6 @@
             <h5><strong>Проект:</strong> {{ project.db_project }}</h5>
             <h5><strong>База данных:</strong> {{ project.db_name }}</h5>
 
-            {# вывод django messages, если есть #}
             {% if messages %}
                 {% for message in messages %}
                     <div class="alert {% if 'error' in message.tags or 'warning' in message.tags %}alert-warning{% else %}alert-success{% endif %} mt-2">
@@ -31,7 +30,6 @@
             <form id="createTableForm" method="post" class="needs-validation" novalidate>
                 {% csrf_token %}
 
-                <!-- Название таблицы: «влево» одной линией -->
                 <div class="mb-0 d-flex align-items-center flex-wrap gap-2">
                     <label for="table_name" class="mb-0">
                         <h5 class="mb-0"><strong>Название таблицы:</strong></h5>
@@ -49,18 +47,16 @@
                     >
                 </div>
 
-                <!-- Заголовок секции столбцов + кнопка добавления -->
                 <div class="d-flex justify-content-between align-items-center mb-3 mt-3">
                     <h5 class="mb-0"><strong>Столбцы:</strong></h5>
                     <button type="button" class="btn btn-success" id="addColumn">
-                        <i class="bi bi-plus-lg"></i> Добавить столбец
+                        <i class="bi bi-plus-lg"></i> Добавить столбеца
                     </button>
                 </div>
 
-                <!-- Контейнер для строк столбцов -->
-                <div id="columns" class="d-grid gap-2"><!-- строки добавит JS --></div>
+                <!-- Передаём engine в data-атрибут -->
+                <div id="columns" class="d-grid gap-2" data-engine="{{ engine }}"></div>
 
-                <!-- Кнопки действия -->
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
                         <i class="bi bi-arrow-left"></i> Назад
@@ -73,5 +69,9 @@
         </div>
     </div>
 
+    <!-- Передаём engine в JS через window -->
+    <script>
+        window.APP_ENGINE = "{{ engine }}";
+    </script>
     <script src="{% static 'js/tables_create.js' %}"></script>
 {% endblock %}

@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+from data_generator.db_work import db_image
+
 
 class DateStamp(models.Model):
     """Временные отметки"""
@@ -45,13 +47,7 @@ class DataBaseName(DateStamp):
     images_db = models.ImageField(verbose_name="Изображение", upload_to='images_db/', default='images_db/default.jpg', blank=True, null=True)
 
     def save(self, *args, **kwargs):
-        image_mapping = {
-            'hive': 'images_db/Hive.jpg',
-            'greenplum': 'images_db/Greenplum.jpg',
-            'mysql': 'images_db/MySQL.jpg',
-            'oracle': 'images_db/Oracle.jpg',
-            'postgresql': 'images_db/PostgreSQL.jpg',
-        }
+        image_mapping = db_image
         db_key = self.name.lower().strip()
         self.images_db = image_mapping.get(db_key, 'images_db/default.jpg')
         super().save(*args, **kwargs)

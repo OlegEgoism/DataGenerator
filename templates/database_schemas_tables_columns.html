@@ -57,7 +57,9 @@
                                 <th>#</th>
                                 <th>Название</th>
                                 <th>Тип</th>
-                                <th>Комментарий</th>
+                                {% if engine != "clickhouse" %}
+                                    <th>Комментарий</th>
+                                {% endif %}
                                 <th class="text-end">Действия</th>
                             </tr>
                             </thead>
@@ -67,20 +69,24 @@
                                     <td>{{ forloop.counter }}</td>
                                     <td>{{ column.0 }}</td>
                                     <td>{{ column.1 }}</td>
-                                    <td>
-                                        {% if column.2 %}
-                                            {{ column.2 }}
-                                        {% else %}
-                                            <span class="text-muted">—</span>
-                                        {% endif %}
-                                    </td>
+                                    {% if engine != "clickhouse" %}
+                                        <td>
+                                            {% if column.2 %}
+                                                {{ column.2 }}
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
                                     <td class="text-end">
-                                        <a href="#"
-                                           class="btn btn-success"
-                                           data-bs-toggle="modal"
-                                           data-bs-target="#renameColModal-{{ forloop.counter }}">
-                                            <i class="bi bi-pencil-square"></i> Переименовать
-                                        </a>
+                                        {% if engine != "clickhouse" %}
+                                            <a href="#"
+                                               class="btn btn-success"
+                                               data-bs-toggle="modal"
+                                               data-bs-target="#renameColModal-{{ forloop.counter }}">
+                                                <i class="bi bi-pencil-square"></i> Переименовать
+                                            </a>
+                                        {% endif %}
                                         <button type="button"
                                                 class="btn btn-danger"
                                                 data-bs-toggle="modal"
