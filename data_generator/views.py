@@ -1050,78 +1050,165 @@ def database_schemas_column_edit(request, pk, schema_name: str, table_name: str,
 
 @login_required
 def database_schemas_table_data(request, pk, schema_name, table_name):
-    """Данные в колонках таблицы базы данных"""
+    """Данные в колонках таблицы базы данных (поддержка PostgreSQL и ClickHouse)"""
     project = get_object_or_404(DataBaseUser, pk=pk)
+    engine = get_engine(project)
     connection, error_message = get_db_connection(project)
     view_table_db = AppSettings.objects.first()
+    page_size = view_table_db.view_table_db if view_table_db else 50
+
     if error_message:
         return render(request, 'error_page.html', {'error_message': error_message})
-    cursor = connection.cursor()
-    cursor.execute("""
-        SELECT column_name
-        FROM information_schema.columns
-        WHERE table_schema = %s AND table_name = %s;
-    """, (schema_name, table_name))
-    columns = [col[0] for col in cursor.fetchall()]
-    cursor.execute(sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
-        sql.Identifier(schema_name), sql.Identifier(table_name)
-    ))
-    record_count = cursor.fetchone()[0]
-    cursor.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
-    db_size_pretty = cursor.fetchone()[0]
 
-    # Пагинация и поиск
-    page_size = view_table_db.view_table_db if view_table_db else 50
-    page_number = request.GET.get('page', 1)
+    columns = []
+    rows = []
+    record_count = 0
+    db_size_pretty = "-"
+
     try:
-        page_number = int(page_number)
-    except ValueError:
-        page_number = 1
-    offset = (page_number - 1) * page_size
+        if engine == "clickhouse":
+            # 1. Получаем список колонок
+            col_result = connection.query("""
+                SELECT name FROM system.columns
+                WHERE database = %(db)s AND table = %(tbl)s
+                ORDER BY position
+            """, parameters={"db": schema_name, "tbl": table_name})
+            columns = [r[0] for r in col_result.result_rows]
 
-    search_query = request.GET.get('search', '').strip()
-    query_params = []
+            # 2. Общее количество записей
+            count_result = connection.query(f"SELECT count() FROM `{schema_name}`.`{table_name}`")
+            record_count = count_result.result_rows[0][0] if count_result.result_rows else 0
 
-    if search_query:
-        search_conditions = " OR ".join([f'"{col}"::text ILIKE %s' for col in columns])
-        sql_query = sql.SQL(
-            'SELECT * FROM {}.{} WHERE ' + search_conditions + ' LIMIT %s OFFSET %s;'
-        ).format(sql.Identifier(schema_name), sql.Identifier(table_name))
-        query_params = [f"%{search_query}%"] * len(columns) + [page_size, offset]
-    else:
-        sql_query = sql.SQL('SELECT * FROM {}.{} LIMIT %s OFFSET %s;').format(
-            sql.Identifier(schema_name), sql.Identifier(table_name)
+            # 3. Размер базы (приблизительно)
+            size_result = connection.query("""
+                SELECT sum(bytes) FROM system.parts
+                WHERE database = %(db)s AND table = %(tbl)s
+            """, parameters={"db": schema_name, "tbl": table_name})
+            size_bytes = size_result.result_rows[0][0] if size_result.result_rows else 0
+            for unit in ["B", "KB", "MB", "GB", "TB"]:
+                if size_bytes < 1024:
+                    db_size_pretty = f"{size_bytes:.0f} {unit}"
+                    break
+                size_bytes /= 1024
+
+            # 4. Пагинация и поиск
+            page_number = request.GET.get('page', 1)
+            try:
+                page_number = int(page_number)
+            except ValueError:
+                page_number = 1
+            offset = (page_number - 1) * page_size
+
+            search_query = request.GET.get('search', '').strip()
+
+            if search_query:
+                # Поиск: LIKE по всем колонкам (только String-типы поддерживают LIKE)
+                # Для простоты — ищем только в колонках типа String
+                string_cols = []
+                types_result = connection.query("""
+                    SELECT name, type FROM system.columns
+                    WHERE database = %(db)s AND table = %(tbl)s
+                """, parameters={"db": schema_name, "tbl": table_name})
+                for name, typ in types_result.result_rows:
+                    if 'String' in typ or 'FixedString' in typ:
+                        string_cols.append(name)
+
+                if string_cols:
+                    like_parts = " OR ".join([f"`{col}` LIKE %({col}_search)s" for col in string_cols])
+                    params = {f"{col}_search": f"%{search_query}%" for col in string_cols}
+                    params["limit"] = page_size
+                    params["offset"] = offset
+                    query = f"""
+                        SELECT * FROM `{schema_name}`.`{table_name}`
+                        WHERE {like_parts}
+                        LIMIT %(limit)s OFFSET %(offset)s
+                    """
+                    data_result = connection.query(query, parameters=params)
+                else:
+                    # Нет текстовых колонок — возвращаем пусто
+                    data_result = connection.query(
+                        f"SELECT * FROM `{schema_name}`.`{table_name}` LIMIT 0"
+                    )
+            else:
+                data_result = connection.query(f"""
+                    SELECT * FROM `{schema_name}`.`{table_name}`
+                    LIMIT {page_size} OFFSET {offset}
+                """)
+
+            rows = data_result.result_rows
+
+        else:
+            # PostgreSQL
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = %s AND table_name = %s;
+                """, (schema_name, table_name))
+                columns = [col[0] for col in cursor.fetchall()]
+
+                cursor.execute(sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
+                    sql.Identifier(schema_name), sql.Identifier(table_name)
+                ))
+                record_count = cursor.fetchone()[0]
+
+                cursor.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
+                db_size_pretty = cursor.fetchone()[0]
+
+                page_number = request.GET.get('page', 1)
+                try:
+                    page_number = int(page_number)
+                except ValueError:
+                    page_number = 1
+                offset = (page_number - 1) * page_size
+
+                search_query = request.GET.get('search', '').strip()
+                query_params = []
+
+                if search_query:
+                    search_conditions = " OR ".join([f'"{col}"::text ILIKE %s' for col in columns])
+                    sql_query = sql.SQL(
+                        'SELECT * FROM {}.{} WHERE ' + search_conditions + ' LIMIT %s OFFSET %s;'
+                    ).format(sql.Identifier(schema_name), sql.Identifier(table_name))
+                    query_params = [f"%{search_query}%"] * len(columns) + [page_size, offset]
+                else:
+                    sql_query = sql.SQL('SELECT * FROM {}.{} LIMIT %s OFFSET %s;').format(
+                        sql.Identifier(schema_name), sql.Identifier(table_name)
+                    )
+                    query_params = [page_size, offset]
+
+                cursor.execute(sql_query, query_params)
+                rows = cursor.fetchall()
+
+        # Пагинация (для обеих СУБД)
+        paginator = Paginator(range(record_count), page_size)
+        try:
+            page_obj = paginator.page(page_number)
+        except (EmptyPage, PageNotAnInteger):
+            page_obj = paginator.page(1)
+
+        return render(
+            request,
+            template_name='database_schemas_table_data.html',
+            context={
+                'project': project,
+                'schema_name': schema_name,
+                'table_name': table_name,
+                'columns': columns,
+                'rows': rows,
+                'record_count': record_count,
+                'records_on_page': len(rows),
+                'search_query': request.GET.get('search', '').strip(),
+                'db_size_pretty': db_size_pretty,
+                'page_obj': page_obj,
+            }
         )
-        query_params = [page_size, offset]
 
-    cursor.execute(sql_query, query_params)
-    rows = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    paginator = Paginator(range(record_count), page_size)
-    try:
-        page_obj = paginator.page(page_number)
-    except (EmptyPage, PageNotAnInteger):
-        page_obj = paginator.page(1)
-
-    return render(
-        request,
-        template_name='database_schemas_table_data.html',
-        context={
-            'project': project,
-            'schema_name': schema_name,
-            'table_name': table_name,
-            'columns': columns,
-            'page_obj': page_obj,
-            'rows': rows,
-            'record_count': record_count,
-            'records_on_page': len(rows),
-            'search_query': search_query,
-            'db_size_pretty': db_size_pretty,
-        }
-    )
+    except Exception as e:
+        error_message = f"Ошибка загрузки данных: {str(e)}"
+        return render(request, 'error_page.html', {'error_message': error_message})
+    finally:
+        close_connection(connection)
 
 
 @login_required
@@ -1256,10 +1343,12 @@ def database_schemas_table_add_columns(request, pk, schema_name: str, table_name
 
 @login_required
 def database_schemas_table_clear(request, pk, schema_name: str, table_name: str):
-    """Полная очистка таблицы (TRUNCATE), опционально со сбросом идентификаторов."""
+    """Полная очистка таблицы с поддержкой PostgreSQL и ClickHouse"""
     project = get_object_or_404(DataBaseUser, pk=pk)
-    next_url = request.POST.get("next") or reverse("database_schemas_tables_columns",
-                                                   args=[pk, schema_name, table_name])
+    engine = get_engine(project)
+    next_url = request.POST.get("next") or reverse(
+        "database_schemas_tables_columns", args=[pk, schema_name, table_name]
+    )
 
     if request.method != "POST":
         return redirect(next_url)
@@ -1271,38 +1360,63 @@ def database_schemas_table_clear(request, pk, schema_name: str, table_name: str)
         messages.warning(request, err or "Ошибка подключения к БД.")
         return redirect(next_url)
 
+    success = False
+    before_cnt = 0
+
     try:
-        with conn.cursor() as cur:
-            # Сколько строк было — для сообщения пользователю
-            cur.execute(sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
-                sql.Identifier(schema_name), sql.Identifier(table_name)
-            ))
-            before_cnt = cur.fetchone()[0]
+        if engine == "clickhouse":
+            # 1. Получаем количество строк ДО удаления
+            count_result = conn.query(f"SELECT count() FROM `{schema_name}`.`{table_name}`")
+            before_cnt = count_result.result_rows[0][0] if count_result.result_rows else 0
 
-            # TRUNCATE [RESTART IDENTITY]
-            truncate_sql = sql.SQL("TRUNCATE TABLE {} {}").format(
-                sql.Identifier(schema_name, table_name),
-                sql.SQL("RESTART IDENTITY") if restart_identity else sql.SQL("")
-            )
-            cur.execute(truncate_sql)
+            # 2. Очистка таблицы
+            # В новых версиях ClickHouse (>=22.8) поддерживается TRUNCATE
+            try:
+                conn.command(f"TRUNCATE TABLE `{schema_name}`.`{table_name}`")
+            except Exception:
+                # Если TRUNCATE не поддерживается — используем ALTER DELETE (медленнее)
+                conn.command(f"ALTER TABLE `{schema_name}`.`{table_name}` DELETE WHERE 1=1")
 
-        conn.commit()
-        if restart_identity:
-            messages.success(
-                request,
-                f"Таблица «{schema_name}.{table_name}» очищена "
-                f"(удалено {before_cnt} строк), автоинкремент сброшен."
-            )
-        else:
             messages.success(
                 request,
                 f"Таблица «{schema_name}.{table_name}» очищена (удалено {before_cnt} строк)."
             )
+            success = True
+
+        else:
+            # PostgreSQL
+            with conn.cursor() as cur:
+                cur.execute(sql.SQL('SELECT COUNT(*) FROM {}.{};').format(
+                    sql.Identifier(schema_name), sql.Identifier(table_name)
+                ))
+                before_cnt = cur.fetchone()[0]
+
+                truncate_sql = sql.SQL("TRUNCATE TABLE {} {}").format(
+                    sql.Identifier(schema_name, table_name),
+                    sql.SQL("RESTART IDENTITY") if restart_identity else sql.SQL("")
+                )
+                cur.execute(truncate_sql)
+            conn.commit()
+
+            if restart_identity:
+                messages.success(
+                    request,
+                    f"Таблица «{schema_name}.{table_name}» очищена "
+                    f"(удалено {before_cnt} строк), автоинкремент сброшен."
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Таблица «{schema_name}.{table_name}» очищена (удалено {before_cnt} строк)."
+                )
+            success = True
+
     except Exception as e:
-        conn.rollback()
+        if engine == "postgres" and hasattr(conn, "rollback"):
+            conn.rollback()
         messages.warning(request, f"Ошибка очистки таблицы: {str(e)}")
     finally:
-        conn.close()
+        close_connection(conn)
 
     return redirect(next_url)
 
