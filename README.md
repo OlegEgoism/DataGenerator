@@ -32,6 +32,8 @@ sudo docker build -t data-generator .
 sudo docker run --rm --network=host -e DJANGO_ALLOWED_HOSTS="localhost,127.0.0.1,0.0.0.0" data-generator
 ```
 
+
+
 При старте контейнера автоматически выполняются миграции и создаётся пользователь логин/пароль: `admin`/`admin`.
 
 

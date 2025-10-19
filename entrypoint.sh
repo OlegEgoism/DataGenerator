@@ -49,7 +49,7 @@ for m in apps.get_models():
 if not Model:
     print("[init] Model DataBaseName not found — пропускаю инициализацию.")
 else:
-    names = ["hive", "greenplum", "mysql", "oracle", "postgresql"]
+    names = ["Hive", "Greenplum", "MySql", "Oracle", "PostgreSQL", "ClickHouse"]
     for nm in names:
         obj, created = Model.objects.get_or_create(name=nm)
         if created:

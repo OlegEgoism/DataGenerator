@@ -1520,8 +1520,8 @@ def generate_fake_data(request, pk, schema_name, table_name):
         try:
             num_records = int(request.POST.get('num_records', 10))
         except (ValueError, TypeError):
-            num_records = 10
-        num_records = max(1, min(num_records, 10000))
+            num_records = 100000000
+        num_records = max(1, min(num_records, 100000000))
 
         conn2, err2 = get_db_connection(project)
         if not conn2:
