@@ -158,18 +158,18 @@ def generate_fake_value(column_name, selected_value, fake):
             return fake.sha256()
         elif selected_value == 'JSON-объект':
             return fake.json(indent=2)
+
         elif selected_value == 'Дата':
-            return fake.date()
+            return fake.date_object()  # Возвращает datetime.date
         elif selected_value == 'Время':
-            return fake.time()
+            return fake.time_object()  # Возвращает datetime.time
         elif selected_value == 'Дата и время':
-            return fake.date_time()
-        elif selected_value == 'Временная зона':
-            return fake.timezone()
+          return fake.date_time()  # Возвращает datetime.datetime
         elif selected_value == 'Дата в прошлом':
-            return fake.past_date()
+         return fake.past_date()  # Возвращает datetime.date
         elif selected_value == 'Дата в будущем':
-            return fake.future_date()
+            return fake.future_date()  # Возвращает datetime.date
+
         elif selected_value == 'Число с запятой':
             return round(random.uniform(0.1, 10000.0), 2)
         elif selected_value == 'Профессия':

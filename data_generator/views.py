@@ -1434,41 +1434,86 @@ def generate_fake_data(request, pk, schema_name, table_name):
     retry_attempts = 200
     db_size_pretty = "-"
     column_data = []
+    engine = get_engine(project)
 
     conn, error_message = get_db_connection(project)
     if conn:
         try:
-            with conn.cursor() as cur:
-                # Подсчёт записей
-                cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
-                record_count = cur.fetchone()[0]
+            if engine == "clickhouse":
+                cols_result = conn.query("""
+                    SELECT name, type
+                    FROM system.columns
+                    WHERE database = %(db)s AND table = %(tbl)s
+                    ORDER BY position
+                """, parameters={"db": schema_name, "tbl": table_name})
+                cols = cols_result.result_rows
 
-                # Получение колонок
-                cur.execute("""
-                    SELECT column_name, data_type
-                    FROM information_schema.columns
-                    WHERE table_schema = %s AND table_name = %s
-                    ORDER BY ordinal_position;
-                """, (schema_name, table_name))
-                cols = cur.fetchall()
-
-                # Сопоставление с choices_list (используем точное имя типа)
                 column_data = []
                 for col_name, db_type in cols:
-                    # Приводим тип к ключу в choices_list
-                    choices = choices_list.get(db_type.lower(), ['Произвольное значение'])
+                    col_type_lower = db_type.lower()
+                    if 'int' in col_type_lower and 'uint8' not in col_type_lower:
+                        choices = ['Целое число', 'Число (маленькое)', 'Число (большое)', 'Возраст', 'Рейтинг (1-5)', 'Оценка (1-10)']
+                    elif 'uint8' in col_type_lower:
+                        choices = ['True/False']
+                    elif 'string' in col_type_lower or 'fixedstring' in col_type_lower:
+                        choices = ALL_CHOICES
+                    elif 'date' in col_type_lower and 'datetime' not in col_type_lower:
+                        choices = ['Дата', 'Дата рождения', 'Дата в прошлом', 'Дата в будущем']
+                    elif 'datetime' in col_type_lower:
+                        choices = ['Дата и время', 'Дата в прошлом', 'Дата в будущем']
+                    elif 'float' in col_type_lower:
+                        choices = ['Число с запятой', 'Широта', 'Долгота', 'Метрика']
+                    else:
+                        choices = ['Произвольное значение']
                     column_data.append({
                         "name": col_name,
                         "type": db_type,
                         "choices": choices
                     })
 
-                cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
-                db_size_pretty = cur.fetchone()[0]
+                count_result = conn.query(f"SELECT count() FROM `{schema_name}`.`{table_name}`")
+                record_count = count_result.result_rows[0][0] if count_result.result_rows else 0
+
+                size_result = conn.query("""
+                    SELECT sum(bytes) FROM system.parts
+                    WHERE database = %(db)s AND table = %(tbl)s
+                """, parameters={"db": schema_name, "tbl": table_name})
+                size_bytes = size_result.result_rows[0][0] if size_result.result_rows else 0
+                for unit in ["B", "KB", "MB", "GB", "TB"]:
+                    if size_bytes < 1024:
+                        db_size_pretty = f"{size_bytes:.0f} {unit}"
+                        break
+                    size_bytes /= 1024
+
+            else:
+                with conn.cursor() as cur:
+                    cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
+                    record_count = cur.fetchone()[0]
+
+                    cur.execute("""
+                        SELECT column_name, data_type
+                        FROM information_schema.columns
+                        WHERE table_schema = %s AND table_name = %s
+                        ORDER BY ordinal_position;
+                    """, (schema_name, table_name))
+                    cols = cur.fetchall()
+
+                    column_data = []
+                    for col_name, db_type in cols:
+                        choices = choices_list.get(db_type.lower(), ['Произвольное значение'])
+                        column_data.append({
+                            "name": col_name,
+                            "type": db_type,
+                            "choices": choices
+                        })
+
+                    cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
+                    db_size_pretty = cur.fetchone()[0]
+
         except Exception as e:
             error_message = f"Ошибка получения структуры: {str(e)}"
         finally:
-            conn.close()
+            close_connection(conn)
 
     # === Вставка данных ===
     if request.method == 'POST' and not error_message:
@@ -1483,58 +1528,120 @@ def generate_fake_data(request, pk, schema_name, table_name):
             error_message = err2 or "Не удалось подключиться к БД."
         else:
             try:
-                with conn2.cursor() as cur:
-                    cur.execute("""
-                        SELECT column_name, data_type
-                        FROM information_schema.columns
-                        WHERE table_schema = %s AND table_name = %s
-                        ORDER BY ordinal_position;
-                    """, (schema_name, table_name))
-                    cols = cur.fetchall()
-                    cols_for_insert = [{"name": c[0], "type": c[1]} for c in cols]
+                if engine == "clickhouse":
+                    cols_result = conn2.query("""
+                        SELECT name, type FROM system.columns
+                        WHERE database = %(db)s AND table = %(tbl)s
+                        ORDER BY position
+                    """, parameters={"db": schema_name, "tbl": table_name})
+                    cols_for_insert = [{"name": r[0], "type": r[1]} for r in cols_result.result_rows]
 
                     if not cols_for_insert:
                         error_message = "Таблица пуста или не существует."
                     else:
-                        column_names_sql = ', '.join([f'"{c["name"]}"' for c in cols_for_insert])
-                        placeholders = ', '.join(['%s'] * len(cols_for_insert))
-                        insert_sql = f'INSERT INTO "{schema_name}"."{table_name}" ({column_names_sql}) VALUES ({placeholders})'
-
+                        rows_to_insert = []
                         for _ in range(num_records):
-                            attempt = 0
-                            while attempt < retry_attempts:
-                                values = [
-                                    generate_fake_value(
-                                        col["name"],
-                                        request.POST.get(f'column_{col["name"]}', 'Произвольное значение'),
-                                        fake
-                                    )
-                                    for col in cols_for_insert
-                                ]
-                                try:
-                                    cur.execute(insert_sql, values)
-                                    inserted_rows += 1
-                                    break
-                                except psycopg2.IntegrityError:
-                                    conn2.rollback()
-                                    attempt += 1
-                                    if attempt >= retry_attempts:
-                                        raise
-                        conn2.commit()
+                            row = []
+                            for col in cols_for_insert:
+                                value = generate_fake_value(
+                                    col["name"],
+                                    request.POST.get(f'column_{col["name"]}', 'Произвольное значение'),
+                                    fake
+                                )
+                                # Убедимся, что дата/время — это объекты, а не строки
+                                if 'datetime' in col["type"].lower():
+                                    if isinstance(value, str):
+                                        from datetime import datetime
+                                        try:
+                                            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                                        except:
+                                            value = fake.date_time()
+                                elif 'date' in col["type"].lower() and 'datetime' not in col["type"].lower():
+                                    if isinstance(value, str):
+                                        from datetime import date
+                                        try:
+                                            value = date.fromisoformat(value)
+                                        except:
+                                            value = fake.date_object()
 
-                        # Обновляем счётчики
-                        cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
-                        record_count = cur.fetchone()[0]
-                        cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
-                        db_size_pretty = cur.fetchone()[0]
+                                # Boolean → UInt8
+                                if 'uint8' in col["type"].lower() and isinstance(value, bool):
+                                    value = int(value)
 
-            except psycopg2.IntegrityError as e:
-                error_message = f"Ошибка целостности (дубликат): {str(e)}"
+                                row.append(value)
+                            rows_to_insert.append(row)
+
+                        col_names = [col["name"] for col in cols_for_insert]
+                        conn2.insert(
+                            table=f"`{schema_name}`.`{table_name}`",
+                            data=rows_to_insert,
+                            column_names=col_names
+                        )
+                        inserted_rows = num_records
+
+                        count_result = conn2.query(f"SELECT count() FROM `{schema_name}`.`{table_name}`")
+                        record_count = count_result.result_rows[0][0] if count_result.result_rows else 0
+
+                        size_result = conn2.query("""
+                            SELECT sum(bytes) FROM system.parts
+                            WHERE database = %(db)s AND table = %(tbl)s
+                        """, parameters={"db": schema_name, "tbl": table_name})
+                        size_bytes = size_result.result_rows[0][0] if size_result.result_rows else 0
+                        for unit in ["B", "KB", "MB", "GB", "TB"]:
+                            if size_bytes < 1024:
+                                db_size_pretty = f"{size_bytes:.0f} {unit}"
+                                break
+                            size_bytes /= 1024
+
+                else:
+                    with conn2.cursor() as cur:
+                        cur.execute("""
+                            SELECT column_name, data_type
+                            FROM information_schema.columns
+                            WHERE table_schema = %s AND table_name = %s
+                            ORDER BY ordinal_position;
+                        """, (schema_name, table_name))
+                        cols = cur.fetchall()
+                        cols_for_insert = [{"name": c[0], "type": c[1]} for c in cols]
+
+                        if not cols_for_insert:
+                            error_message = "Таблица пуста или не существует."
+                        else:
+                            column_names_sql = ', '.join([f'"{c["name"]}"' for c in cols_for_insert])
+                            placeholders = ', '.join(['%s'] * len(cols_for_insert))
+                            insert_sql = f'INSERT INTO "{schema_name}"."{table_name}" ({column_names_sql}) VALUES ({placeholders})'
+
+                            for _ in range(num_records):
+                                attempt = 0
+                                while attempt < retry_attempts:
+                                    values = [
+                                        generate_fake_value(
+                                            col["name"],
+                                            request.POST.get(f'column_{col["name"]}', 'Произвольное значение'),
+                                            fake
+                                        )
+                                        for col in cols_for_insert
+                                    ]
+                                    try:
+                                        cur.execute(insert_sql, values)
+                                        inserted_rows += 1
+                                        break
+                                    except psycopg2.IntegrityError:
+                                        conn2.rollback()
+                                        attempt += 1
+                                        if attempt >= retry_attempts:
+                                            raise
+                            conn2.commit()
+
+                            cur.execute(f'SELECT COUNT(*) FROM "{schema_name}"."{table_name}";')
+                            record_count = cur.fetchone()[0]
+                            cur.execute("SELECT pg_size_pretty(pg_database_size(current_database()));")
+                            db_size_pretty = cur.fetchone()[0]
+
             except Exception as e:
                 error_message = f"Ошибка вставки: {str(e)}"
             finally:
-                if conn2:
-                    conn2.close()
+                close_connection(conn2)
 
     return render(request, 'generate_fake_data.html', {
         'project': project,
@@ -1544,7 +1651,8 @@ def generate_fake_data(request, pk, schema_name, table_name):
         'inserted_rows': inserted_rows,
         'record_count': record_count,
         'db_size_pretty': db_size_pretty,
-        'error_message': error_message
+        'error_message': error_message,
+        'engine': engine,
     })
 
 

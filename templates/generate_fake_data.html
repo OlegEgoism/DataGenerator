@@ -21,17 +21,25 @@
             <h5><strong>Количество записей в таблице:</strong> {{ record_count }} шт.</h5>
             <hr>
 
-            {% if error_message %}
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
-                </div>
-            {% endif %}
+{% if error_message %}
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
+    </div>
+{% endif %}
 
-            {% if inserted_rows %}
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle-fill"></i> В таблицу {{ table_name }} успешно записаны данные.
-                </div>
-            {% endif %}
+{% if engine == "clickhouse" %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle-fill"></i>
+        Вы используете ClickHouse. Уникальные значения и автоинкремент не поддерживаются.
+        Генерация данных выполняется без учёта ограничений целостности.
+    </div>
+{% endif %}
+
+{% if inserted_rows %}
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle-fill"></i> В таблицу {{ table_name }} успешно записаны данные.
+    </div>
+{% endif %}
 
             <form method="post" id="generateForm">
                 {% csrf_token %}

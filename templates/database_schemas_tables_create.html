@@ -57,6 +57,20 @@
                 <!-- Передаём engine в data-атрибут -->
                 <div id="columns" class="d-grid gap-2" data-engine="{{ engine }}"></div>
 
+                <!-- Контейнер для строк столбцов -->
+                <div id="newColumnsWrap" class="d-grid gap-2"><!-- строки добавляет JS --></div>
+                {% if engine == "clickhouse" %}
+                    <div class="form-text mt-2">
+                        Поддерживаемые типы: INTEGER / BIGINT / BOOLEAN / VARCHAR(255) / TEXT / DATE / TIMESTAMP / FLOAT / DOUBLE PERCISION.
+                    </div>
+                {% else %}
+                    <div class="form-text mt-2">
+                        Поддерживаемые типы: SMALLINT / INTEGER / BIGINT / (BIG)SERIAL / REAL / DOUBLE PRECISION / FLOAT / NUMERIC /
+                        BOOLEAN / CHAR(1) / VARCHAR(255) / TEXT / DATE / TIME / TIMESTAMP / TIMESTAMPTZ / UUID / JSONB / BYTEA. <br>
+                        Комментарии сохраняются через <code>COMMENT ON COLUMN</code>, флажок «Уник» добавит <code>UNIQUE</code>.
+                    </div>
+                {% endif %}
+
                 <div class="d-flex justify-content-between align-items-center mt-3">
                     <a href="{% url 'database_schemas_tables' project.pk schema_name %}" class="btn btn-secondary">
                         <i class="bi bi-arrow-left"></i> Назад
